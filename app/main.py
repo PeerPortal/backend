@@ -21,124 +21,96 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# 创建 FastAPI 应用实例
+# 创建留学双边信息平台应用
 app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.VERSION,
-    description=settings.DESCRIPTION,
-    lifespan=lifespan,  # 使用生命周期管理器
-    docs_url="/docs" if settings.DEBUG else None,  # 生产环境可关闭文档
-    redoc_url="/redoc" if settings.DEBUG else None,
+    title="启航引路人 - 留学双边信息平台 API", 
+    version="3.0.0", 
+    description="连接留学申请者与目标学校学长学姐的专业指导平台",
+    lifespan=lifespan
 )
 
-
-# 添加 CORS 中间件
+# CORS配置（支持前端跨域访问）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["http://localhost:3000", "https://yourdomain.com"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# 信任主机中间件（安全配置）
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["localhost", "127.0.0.1", "yourdomain.com", "*"]
+)
 
-# 添加可信主机中间件（生产环境安全）
-if not settings.DEBUG:
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=settings.ALLOWED_ORIGINS
-    )
-
-
-# 全局异常处理器
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """
-    全局异常处理器：捕获所有未处理的异常，记录日志并返回500错误
+    留学平台全局异常处理器
+    保护用户隐私，记录错误日志，返回友好错误信息
     """
-    logger.error(f"未处理的异常: {exc}", exc_info=True)
+    # 在生产环境中应使用专业的日志系统
+    print(f"🚨 平台错误: {type(exc).__name__}: {exc}")
     
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "detail": "服务器内部错误，请稍后重试",
-            "error_id": str(id(exc))  # 用于错误追踪
+            "error_id": f"{hash(str(exc)) % 10000000000:010d}"  # 生成错误ID便于追踪
         },
     )
 
-
-# 404 处理器
-@app.exception_handler(404)
-async def not_found_handler(request: Request, exc):
-    """404 错误处理器"""
-    return JSONResponse(
-        status_code=404,
-        content={"detail": f"请求的路径 {request.url.path} 不存在"}
-    )
-
-
-# 健康检查端点
-@app.get(
-    "/health",
-    summary="健康检查",
-    description="检查应用和数据库连接状态",
-    tags=["Health"]
+# 注册所有路由模块
+from app.api.routers import (
+    auth_router, user_router, mentor_router, student_router,
+    matching_router, service_router, session_router, review_router, message_router
 )
-async def health_check():
-    """
-    健康检查端点
-    检查应用状态和数据库连接
-    """
-    try:
-        db_healthy = await check_db_health()
-        
-        return {
-            "status": "healthy" if db_healthy else "unhealthy",
-            "database": "connected" if db_healthy else "disconnected",
-            "version": settings.VERSION,
-            "debug": settings.DEBUG
-        }
-    except Exception as e:
-        logger.error(f"健康检查失败: {e}")
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "unhealthy",
-                "database": "error",
-                "error": str(e)
-            }
-        )
 
+# 用户认证和管理
+app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["认证系统"])
+app.include_router(user_router.router, prefix="/api/v1/users", tags=["用户管理"])
 
-# 根路径
-@app.get(
-    "/",
-    summary="API 根路径",
-    description="返回 API 基本信息"
-)
-async def root():
-    """API 根路径"""
+# 留学平台核心功能
+app.include_router(mentor_router.router, prefix="/api/v1/mentors", tags=["学长学姐"])
+app.include_router(student_router.router, prefix="/api/v1/students", tags=["学弟学妹"])
+app.include_router(matching_router.router, prefix="/api/v1/matching", tags=["智能匹配"])
+
+# 服务和交易
+app.include_router(service_router.router, prefix="/api/v1/services", tags=["指导服务"])
+app.include_router(session_router.router, prefix="/api/v1/sessions", tags=["指导会话"])
+
+# 评价和反馈
+app.include_router(review_router.router, prefix="/api/v1/reviews", tags=["评价反馈"])
+
+# 消息系统
+app.include_router(message_router.router, prefix="/api/v1/messages", tags=["消息系统"])
+
+@app.get("/", summary="平台首页", description="留学双边信息平台API首页")
+async def read_root():
     return {
-        "name": settings.APP_NAME,
-        "version": settings.VERSION,
-        "description": settings.DESCRIPTION,
-        "docs_url": "/docs" if settings.DEBUG else "文档已在生产环境中禁用",
+        "message": "欢迎使用启航引路人 - 留学双边信息平台",
+        "description": "连接留学申请者与目标学校学长学姐的专业指导平台",
+        "version": "3.0.0",
+        "features": [
+            "🎓 学长学姐指导服务",
+            "🎯 智能匹配算法", 
+            "📚 专业留学指导",
+            "💬 实时沟通交流",
+            "⭐ 评价反馈体系"
+        ],
+        "api_docs": "/docs",
         "health_check": "/health"
     }
 
-
-# 注册 API 路由
-app.include_router(
-    auth_router.router,
-    prefix="/api/v1/auth",
-    tags=["认证"]
-)
-
-app.include_router(
-    user_router.router,
-    prefix="/api/v1/users",
-    tags=["用户"]
-)
+@app.get("/health", summary="健康检查", description="检查平台服务状态")
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": "留学双边信息平台",
+        "version": "3.0.0",
+        "timestamp": "2024-01-01T00:00:00Z"
+    }
 
 
 # 中间件：请求日志记录

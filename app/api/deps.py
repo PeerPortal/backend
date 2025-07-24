@@ -151,3 +151,45 @@ async def get_current_user_optional(
         return await get_current_user(token, db_conn)
     except HTTPException:
         return None 
+
+def require_mentor_role():
+    """
+    要求指导者（学长学姐）角色的依赖
+    用于保护指导者专用的API端点
+    """
+    def role_checker(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+        if current_user.role not in ["mentor", "admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="此功能仅限认证的学长学姐使用",
+            )
+        return current_user
+    return role_checker
+
+def require_student_role():
+    """
+    要求申请者（学弟学妹）角色的依赖
+    用于保护申请者专用的API端点
+    """
+    def role_checker(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+        if current_user.role not in ["student", "admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="此功能仅限申请留学的学弟学妹使用",
+            )
+        return current_user
+    return role_checker
+
+def require_admin_role():
+    """
+    要求管理员角色的依赖
+    用于保护管理员专用的API端点
+    """
+    def role_checker(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+        if current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="此功能仅限管理员使用",
+            )
+        return current_user
+    return role_checker 
