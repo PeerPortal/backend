@@ -1,0 +1,28 @@
+{
+  "timestamp": "20250724_173555",
+  "base_url": "http://localhost:8001",
+  "results": {
+    "server_connection": true,
+    "health_check": true,
+    "user_registration": true,
+    "user_login": true,
+    "existing_endpoints": true,
+    "skill_management": true,
+    "matching_algorithm": true,
+    "relationship_lifecycle": true,
+    "review_system": true
+  },
+  "test_users": [
+    {
+      "username": "testuser_zdat4wiy",
+      "email": "testuser_zdat4wiy@test.com",
+      "password": "testpass123",
+      "user_info": {
+        "username": "testuser_zdat4wiy",
+        "email": "testuser_zdat4wiy@test.com",
+        "id": 15,
+        "created_at": "2025-07-24T09:35:55.351803"
+      }
+    }
+  ]
+}

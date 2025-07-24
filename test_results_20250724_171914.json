@@ -1,0 +1,9 @@
+{
+  "timestamp": "20250724_171914",
+  "base_url": "http://localhost:8001",
+  "results": {
+    "server_connection": false,
+    "health_check": false
+  },
+  "test_users": []
+}
