@@ -187,40 +187,66 @@ async def get_user_profile(db_conn: Dict[str, Any], user_id: int) -> Optional[Di
     try:
         if db_conn["type"] == "asyncpg":
             conn = db_conn["connection"]
-            result = await conn.fetchrow(
-                """
-                SELECT 
-                    u.id, u.username, u.email, u.role, u.is_active, u.created_at,
-                    p.full_name, p.avatar_url, p.bio, p.phone, p.location, p.website, p.birth_date
-                FROM users u
-                LEFT JOIN profiles p ON u.id = p.user_id
-                WHERE u.id = $1
-                """,
-                user_id
-            )
-            return dict(result) if result else None
+            # 添加连接验证
+            try:
+                result = await conn.fetchrow(
+                    """
+                    SELECT 
+                        u.id, u.username, u.email, u.role, u.is_active, u.created_at,
+                        p.full_name, p.avatar_url, p.bio, p.phone, p.location, p.website, p.birth_date
+                    FROM users u
+                    LEFT JOIN profiles p ON u.id = p.user_id
+                    WHERE u.id = $1
+                    """,
+                    user_id
+                )
+                return dict(result) if result else None
+            except Exception as db_error:
+                print(f"数据库连接错误，尝试使用备用方案: {db_error}")
+                # 如果数据库连接失败，尝试降级到基本用户信息
+                try:
+                    basic_result = await conn.fetchrow(
+                        "SELECT id, username, email, role, is_active, created_at FROM users WHERE id = $1",
+                        user_id
+                    )
+                    if basic_result:
+                        return dict(basic_result)
+                except:
+                    return None
         else:
             client: Client = db_conn["connection"]
             # 先获取用户信息
-            user_result = client.table('users').select(
-                'id, username, email, role, is_active, created_at'
-            ).eq('id', user_id).execute()
-            
-            if not user_result.data:
-                return None
+            try:
+                user_result = client.table('users').select(
+                    'id, username, email, role, is_active, created_at'
+                ).eq('id', user_id).execute()
                 
-            user_data = user_result.data[0]
-            
-            # 获取profile信息
-            profile_result = client.table('profiles').select(
-                'full_name, avatar_url, bio, phone, location, website, birth_date'
-            ).eq('user_id', user_id).execute()
-            
-            # 合并数据
-            if profile_result.data:
-                user_data.update(profile_result.data[0])
-            
-            return user_data
+                if not user_result.data:
+                    return None
+                    
+                user_data = user_result.data[0]
+                
+                # 尝试获取profile信息，如果失败也不影响基本用户信息返回
+                try:
+                    profile_result = client.table('profiles').select(
+                        'full_name, avatar_url, bio, phone, location, website, birth_date'
+                    ).eq('user_id', user_id).execute()
+                    
+                    # 合并数据
+                    if profile_result.data:
+                        profile_data = profile_result.data[0]
+                        # 安全地合并数据，避免键冲突
+                        for key, value in profile_data.items():
+                            if key not in user_data:  # 避免覆盖用户基本信息
+                                user_data[key] = value
+                except Exception as profile_error:
+                    print(f"获取profile信息失败，但用户基本信息仍可用: {profile_error}")
+                    # 继续返回用户基本信息
+                
+                return user_data
+            except Exception as supabase_error:
+                print(f"Supabase查询失败: {supabase_error}")
+                return None
     except Exception as e:
         print(f"获取用户资料失败: {e}")
         return None

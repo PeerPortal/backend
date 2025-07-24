@@ -109,7 +109,7 @@ async def get_current_user(
     
     return AuthenticatedUser(
         id=str(user['id']),
-        username=user['username'],
+        username=user['username'],  # 确保设置username字段
         email=user.get('email'),
         role=user.get('role', 'user')
     )
