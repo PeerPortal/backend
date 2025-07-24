@@ -1,8 +1,12 @@
 fastapi
-uvicorn
+uvicorn[standard]
 python-jose[cryptography]
 passlib[bcrypt]
 supabase
 psycopg2-binary
 python-dotenv
 requests
+asyncpg
+pydantic-settings
+sqlalchemy[asyncio]
+gunicorn
