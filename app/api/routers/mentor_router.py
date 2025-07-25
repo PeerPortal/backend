@@ -3,9 +3,9 @@ from typing import List, Optional
 from app.api.deps import get_current_user, require_mentor_role, get_db_or_supabase
 from app.schemas.token_schema import AuthenticatedUser
 from app.schemas.mentor_schema import (
-    MentorCreate, MentorUpdate, MentorProfile, MentorPublic, MentorFilter
+    MentorCreate, MentorUpdate, MentorProfile, MentorPublic
 )
-from app.crud import crud_mentor
+from app.crud.crud_mentor_fixed import mentor_crud
 
 router = APIRouter()
 
@@ -18,7 +18,7 @@ router = APIRouter()
 async def create_mentor_profile(
     mentor_data: MentorCreate,
     db_conn=Depends(get_db_or_supabase),
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: AuthenticatedUser = Depends(get_current_user)  # 移除角色限制，允许任何用户注册成为导师
 ):
     """注册成为指导者"""
     try:

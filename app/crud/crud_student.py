@@ -11,33 +11,33 @@ async def create_student_profile(db_conn: Dict[str, Any], user_id: int, student_
             result = await conn.fetchrow(
                 """
                 INSERT INTO user_learning_needs 
-                (user_id, current_education, gpa, target_degree, target_universities, target_majors, 
-                 application_timeline, budget_range, preferred_countries, language_scores)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                RETURNING id, user_id, current_education, gpa, target_degree, target_universities, 
-                         target_majors, application_timeline, budget_range, preferred_countries, 
-                         language_scores, application_status, created_at, updated_at
+                (user_id, urgency_level, budget_min, budget_max, currency, preferred_format, 
+                 description, learning_goals, current_level, target_level, is_active)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id, user_id, urgency_level, budget_min, budget_max, currency, 
+                         preferred_format, description, learning_goals, current_level, 
+                         target_level, is_active, created_at, updated_at
                 """,
-                user_id, student_data.current_education, student_data.gpa, student_data.target_degree,
-                student_data.target_universities, student_data.target_majors, 
-                student_data.application_timeline, student_data.budget_range,
-                student_data.preferred_countries, student_data.language_scores
+                user_id, 2, None, None, 'CNY', 'online', 
+                f"申请{student_data.target_degree}学位", 
+                f"目标学校: {', '.join(student_data.target_universities)}",
+                1, 2, True
             )
             return dict(result) if result else None
         else:
             client: Client = db_conn["connection"]
             result = client.table('user_learning_needs').insert({
                 'user_id': user_id,
-                'current_education': student_data.current_education,
-                'gpa': student_data.gpa,
-                'target_degree': student_data.target_degree,
-                'target_universities': student_data.target_universities,
-                'target_majors': student_data.target_majors,
-                'application_timeline': student_data.application_timeline,
-                'budget_range': student_data.budget_range,
-                'preferred_countries': student_data.preferred_countries,
-                'language_scores': student_data.language_scores,
-                'application_status': 'preparing'
+                'urgency_level': 2,  # 中等紧急
+                'budget_min': None,
+                'budget_max': None,
+                'currency': 'CNY',
+                'preferred_format': 'online',
+                'description': f"申请{student_data.target_degree}学位",
+                'learning_goals': f"目标学校: {', '.join(student_data.target_universities)}",
+                'current_level': 1,
+                'target_level': 2,
+                'is_active': True
             }).execute()
             return result.data[0] if result.data else None
     except Exception as e:
