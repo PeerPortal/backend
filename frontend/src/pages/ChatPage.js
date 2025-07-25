@@ -186,9 +186,9 @@ const ChatPage = () => {
   const handleRoomSelect = (room) => {
     setSelectedRoom(room);
     setMessages(mockMessages[room.id] || []);
-    
+
     // 标记消息为已读
-    setChatRooms(prev => prev.map(r => 
+    setChatRooms(prev => prev.map(r =>
       r.id === room.id ? { ...r, unread_count: 0 } : r
     ));
   };
@@ -208,17 +208,17 @@ const ChatPage = () => {
     setMessage('');
 
     // 更新聊天室的最后消息
-    setChatRooms(prev => prev.map(room => 
-      room.id === selectedRoom.id 
-        ? { 
-            ...room, 
-            last_message: {
-              content: message,
-              sender_id: 999,
-              created_at: new Date().toISOString()
-            },
-            updated_at: new Date().toISOString()
-          }
+    setChatRooms(prev => prev.map(room =>
+      room.id === selectedRoom.id
+        ? {
+          ...room,
+          last_message: {
+            content: message,
+            sender_id: 999,
+            created_at: new Date().toISOString()
+          },
+          updated_at: new Date().toISOString()
+        }
         : room
     ));
   };
@@ -227,7 +227,7 @@ const ChatPage = () => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return '刚刚';
     if (diffInMinutes < 60) return `${diffInMinutes}分钟前`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}小时前`;
@@ -261,7 +261,7 @@ const ChatPage = () => {
                 <Box>
                   <IconButton
                     onClick={() => setAiChatOpen(true)}
-                    sx={{ 
+                    sx={{
                       background: 'linear-gradient(45deg, #ff6b6b, #ffa500)',
                       color: 'white',
                       mr: 1,
@@ -278,7 +278,7 @@ const ChatPage = () => {
                   </IconButton>
                 </Box>
               </Box>
-              
+
               {/* 搜索框 */}
               <TextField
                 fullWidth
@@ -382,8 +382,8 @@ const ChatPage = () => {
                         {selectedRoom.other_user.online_status === 'online'
                           ? '在线'
                           : selectedRoom.other_user.online_status === 'away'
-                          ? '离开'
-                          : `最后上线: ${formatTime(selectedRoom.other_user.last_seen)}`
+                            ? '离开'
+                            : `最后上线: ${formatTime(selectedRoom.other_user.last_seen)}`
                         }
                       </Typography>
                     </Box>
@@ -542,7 +542,7 @@ const ChatPage = () => {
           }
         }}
       >
-        <DialogTitle sx={{ 
+        <DialogTitle sx={{
           background: 'linear-gradient(45deg, #ff6b6b, #ffa500)',
           color: 'white',
           display: 'flex',
