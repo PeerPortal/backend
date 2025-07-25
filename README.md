@@ -55,10 +55,13 @@ python test/check_database_complete.py
 
 ### 4. 启动平台
 ```bash
-# 启动留学平台服务
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# 方式1: 使用启动脚本（推荐）
+./start_server.sh
 
-# 服务运行在 http://localhost:8000
+# 方式2: 手动启动
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+
+# 服务运行在 http://localhost:8001
 ```
 
 ## 🏗️ 技术架构
@@ -215,7 +218,7 @@ python test/test_all_api.py
 ### 1. 学弟学妹注册并寻找指导者
 ```bash
 # 注册申请者账户
-curl -X POST "http://localhost:8000/api/v1/auth/register" \
+curl -X POST "http://localhost:8001/api/v1/auth/register" \
      -H "Content-Type: application/json" \
      -d '{
        "username": "student2024",
@@ -225,12 +228,12 @@ curl -X POST "http://localhost:8000/api/v1/auth/register" \
      }'
 
 # 登录获取token
-curl -X POST "http://localhost:8000/api/v1/auth/login" \
+curl -X POST "http://localhost:8001/api/v1/auth/login" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      -d "username=student2024&password=securepass"
 
 # 创建申请者资料
-curl -X POST "http://localhost:8000/api/v1/students/profile" \
+curl -X POST "http://localhost:8001/api/v1/students/profile" \
      -H "Authorization: Bearer YOUR_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
@@ -242,7 +245,7 @@ curl -X POST "http://localhost:8000/api/v1/students/profile" \
      }'
 
 # 获取推荐指导者
-curl -X POST "http://localhost:8000/api/v1/matching/recommend" \
+curl -X POST "http://localhost:8001/api/v1/matching/recommend" \
      -H "Authorization: Bearer YOUR_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
@@ -255,7 +258,7 @@ curl -X POST "http://localhost:8000/api/v1/matching/recommend" \
 ### 2. 学长学姐注册并提供服务
 ```bash
 # 注册指导者账户
-curl -X POST "http://localhost:8000/api/v1/auth/register" \
+curl -X POST "http://localhost:8001/api/v1/auth/register" \
      -H "Content-Type: application/json" \
      -d '{
        "username": "mentor2024",
@@ -265,7 +268,7 @@ curl -X POST "http://localhost:8000/api/v1/auth/register" \
      }'
 
 # 创建指导者资料
-curl -X POST "http://localhost:8000/api/v1/mentors/profile" \
+curl -X POST "http://localhost:8001/api/v1/mentors/profile" \
      -H "Authorization: Bearer YOUR_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
@@ -279,7 +282,7 @@ curl -X POST "http://localhost:8000/api/v1/mentors/profile" \
      }'
 
 # 发布指导服务
-curl -X POST "http://localhost:8000/api/v1/services" \
+curl -X POST "http://localhost:8001/api/v1/services" \
      -H "Authorization: Bearer YOUR_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
@@ -318,9 +321,9 @@ async def student_function(current_user = Depends(require_student_role())):
 
 ## 📖 文档资源
 
-- **API交互文档**: http://localhost:8000/docs
-- **ReDoc文档**: http://localhost:8000/redoc
-- **健康检查**: http://localhost:8000/health
+- **API交互文档**: http://localhost:8001/docs
+- **ReDoc文档**: http://localhost:8001/redoc
+- **健康检查**: http://localhost:8001/health
 - **技术架构**: [`后端.md`](后端.md)
 - **前端对接**: [`前端.md`](前端.md)
 
@@ -341,7 +344,7 @@ async def student_function(current_user = Depends(require_student_role())):
 docker build -t study-abroad-platform .
 
 # 运行容器
-docker run -d -p 8000:8000 --env-file .env study-abroad-platform
+docker run -d -p 8001:8001 --env-file .env study-abroad-platform
 ```
 
 ### 环境配置
@@ -364,7 +367,7 @@ CORS_ORIGINS=https://yourdomain.com
 
 **获取支持:**
 - 查看详细日志输出
-- 运行健康检查: `curl http://localhost:8000/health`
+- 运行健康检查: `curl http://localhost:8001/health`
 - 运行测试套件: `python test/run_all_tests.py`
 
 ---
