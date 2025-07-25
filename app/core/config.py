@@ -1,6 +1,15 @@
 """
 应用配置管理模块
-使用 Pydantic Settings 来管理环境变量和应用配置
+使用 Pydantic Settings 来管理环境变    # 服务器配置
+    HOST: str = Field(default="0.0.0.0")
+    PORT: int = Field(default=8000)
+    
+    # OAuth配置
+    GOOGLE_CLIENT_ID: Optional[str] = Field(default=None)
+    GOOGLE_CLIENT_SECRET: Optional[str] = Field(default=None)
+    GITHUB_CLIENT_ID: Optional[str] = Field(default=None)
+    GITHUB_CLIENT_SECRET: Optional[str] = Field(default=None)
+    FRONTEND_URL: str = Field(default="http://localhost:3000")用配置
 """
 from pydantic_settings import BaseSettings
 from pydantic import Field

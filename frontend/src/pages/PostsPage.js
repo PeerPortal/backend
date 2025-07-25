@@ -135,6 +135,7 @@ const PostsPage = () => {
 
   useEffect(() => {
     setPosts(mockPosts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleTabChange = (event, newValue) => {

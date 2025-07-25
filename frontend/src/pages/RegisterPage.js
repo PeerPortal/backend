@@ -33,6 +33,7 @@ import {
   GitHub as GitHubIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { initiateOAuth, isOAuthEnabled } from '../utils/oauth';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -44,14 +45,14 @@ const RegisterPage = () => {
     confirmPassword: '',
     fullName: '',
     userType: 'student', // student | mentor
-    
+
     // 详细信息
     university: '',
     major: '',
     graduationYear: '',
     degree: '',
     introduction: '',
-    
+
     // 协议同意
     agreeTerms: false,
     agreePrivacy: false,
@@ -83,7 +84,7 @@ const RegisterPage = () => {
 
   const validateStep = (step) => {
     setError('');
-    
+
     if (step === 0) {
       if (!formData.email || !formData.password || !formData.fullName) {
         setError('请填写所有必填字段');
@@ -98,51 +99,79 @@ const RegisterPage = () => {
         return false;
       }
     }
-    
+
     if (step === 1) {
       if (formData.userType === 'mentor' && (!formData.university || !formData.major)) {
         setError('导师账户需要填写院校和专业信息');
         return false;
       }
     }
-    
+
     if (step === 2) {
       if (!formData.agreeTerms || !formData.agreePrivacy) {
         setError('请同意服务条款和隐私政策');
         return false;
       }
     }
-    
+
     return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateStep(2)) return;
-    
+
     setLoading(true);
     setError('');
 
     try {
-      // 模拟注册API调用
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // 注册成功，跳转到登录页面
-      navigate('/login', { 
-        state: { 
-          message: '注册成功！请登录您的账户',
-          email: formData.email 
-        }
+      // 使用真实的后端API注册
+      const registerData = {
+        username: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        role: formData.userType
+      };
+
+      const response = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registerData)
       });
+
+      if (response.ok) {
+        // 注册成功，跳转到登录页面
+        navigate('/login', {
+          state: {
+            message: '注册成功！请登录您的账户',
+            email: formData.email
+          }
+        });
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || '注册失败，请重试');
+      }
     } catch (err) {
-      setError('注册失败，请重试');
+      setError('网络错误，请重试');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSocialRegister = (provider) => {
-    console.log(`使用 ${provider} 注册`);
+  const handleSocialRegister = async (provider) => {
+    try {
+      if (!isOAuthEnabled(provider)) {
+        setError(`${provider === 'google' ? 'Google' : 'GitHub'}注册暂未配置，请使用邮箱密码注册`);
+        return;
+      }
+
+      setError('');
+      await initiateOAuth(provider);
+    } catch (err) {
+      setError(`${provider === 'google' ? 'Google' : 'GitHub'}注册失败: ${err.message}`);
+    }
   };
 
   const BasicInfoStep = () => (
@@ -150,7 +179,7 @@ const RegisterPage = () => {
       <Typography variant="h6" gutterBottom>
         基本信息
       </Typography>
-      
+
       <TextField
         margin="normal"
         required
@@ -162,6 +191,12 @@ const RegisterPage = () => {
         autoFocus
         value={formData.fullName}
         onChange={handleChange}
+        onKeyDown={(e) => {
+          // 防止Enter键触发表单提交
+          if (e.key === 'Enter') {
+            e.preventDefault();
+          }
+        }}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
@@ -170,7 +205,7 @@ const RegisterPage = () => {
           ),
         }}
       />
-      
+
       <TextField
         margin="normal"
         required
@@ -178,9 +213,16 @@ const RegisterPage = () => {
         id="email"
         label="邮箱地址"
         name="email"
+        type="email"
         autoComplete="email"
         value={formData.email}
         onChange={handleChange}
+        onKeyDown={(e) => {
+          // 防止Enter键触发表单提交
+          if (e.key === 'Enter') {
+            e.preventDefault();
+          }
+        }}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
@@ -189,7 +231,7 @@ const RegisterPage = () => {
           ),
         }}
       />
-      
+
       <TextField
         margin="normal"
         required
@@ -201,6 +243,12 @@ const RegisterPage = () => {
         autoComplete="new-password"
         value={formData.password}
         onChange={handleChange}
+        onKeyDown={(e) => {
+          // 防止Enter键触发表单提交
+          if (e.key === 'Enter') {
+            e.preventDefault();
+          }
+        }}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
@@ -219,7 +267,7 @@ const RegisterPage = () => {
           ),
         }}
       />
-      
+
       <TextField
         margin="normal"
         required
@@ -230,6 +278,12 @@ const RegisterPage = () => {
         id="confirmPassword"
         value={formData.confirmPassword}
         onChange={handleChange}
+        onKeyDown={(e) => {
+          // 防止Enter键触发表单提交
+          if (e.key === 'Enter') {
+            e.preventDefault();
+          }
+        }}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
@@ -248,7 +302,7 @@ const RegisterPage = () => {
           ),
         }}
       />
-      
+
       <FormControl fullWidth margin="normal">
         <InputLabel>账户类型</InputLabel>
         <Select
@@ -269,13 +323,13 @@ const RegisterPage = () => {
       <Typography variant="h6" gutterBottom>
         详细资料
       </Typography>
-      
+
       {formData.userType === 'mentor' && (
         <Alert severity="info" sx={{ mb: 2 }}>
           导师账户需要填写教育背景信息，用于身份认证
         </Alert>
       )}
-      
+
       <TextField
         margin="normal"
         fullWidth
@@ -293,7 +347,7 @@ const RegisterPage = () => {
           ),
         }}
       />
-      
+
       <TextField
         margin="normal"
         fullWidth
@@ -304,7 +358,7 @@ const RegisterPage = () => {
         onChange={handleChange}
         required={formData.userType === 'mentor'}
       />
-      
+
       <Box sx={{ display: 'flex', gap: 2 }}>
         <FormControl margin="normal" sx={{ flex: 1 }}>
           <InputLabel>学历</InputLabel>
@@ -319,7 +373,7 @@ const RegisterPage = () => {
             <MenuItem value="phd">博士</MenuItem>
           </Select>
         </FormControl>
-        
+
         <TextField
           margin="normal"
           sx={{ flex: 1 }}
@@ -331,7 +385,7 @@ const RegisterPage = () => {
           onChange={handleChange}
         />
       </Box>
-      
+
       <TextField
         margin="normal"
         fullWidth
@@ -342,8 +396,8 @@ const RegisterPage = () => {
         rows={3}
         value={formData.introduction}
         onChange={handleChange}
-        placeholder={formData.userType === 'mentor' 
-          ? "请简要介绍您的教育背景和专业经验..." 
+        placeholder={formData.userType === 'mentor'
+          ? "请简要介绍您的教育背景和专业经验..."
           : "请简要介绍您的背景和申请目标..."
         }
       />
@@ -355,7 +409,7 @@ const RegisterPage = () => {
       <Typography variant="h6" gutterBottom>
         完成注册
       </Typography>
-      
+
       <Box sx={{ mb: 3 }}>
         <Typography variant="body1" gutterBottom>
           账户信息确认
@@ -372,7 +426,7 @@ const RegisterPage = () => {
           )}
         </Box>
       </Box>
-      
+
       <FormControlLabel
         control={
           <Checkbox
@@ -390,7 +444,7 @@ const RegisterPage = () => {
           </Typography>
         }
       />
-      
+
       <FormControlLabel
         control={
           <Checkbox
@@ -482,7 +536,7 @@ const RegisterPage = () => {
               >
                 上一步
               </Button>
-              
+
               {activeStep === steps.length - 1 ? (
                 <Button
                   type="submit"

@@ -4,7 +4,6 @@ import {
   Typography,
   Box,
   Card,
-  CardContent,
   Grid,
   Button,
   TextField,
@@ -16,8 +15,6 @@ import {
   ListItemText,
   Badge,
   IconButton,
-  Chip,
-  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -175,6 +172,7 @@ const ChatPage = () => {
       setSelectedRoom(mockChatRooms[0]);
       setMessages(mockMessages[mockChatRooms[0].id] || []);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

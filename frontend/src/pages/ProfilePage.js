@@ -31,12 +31,10 @@ import {
   Edit as EditIcon,
   School as SchoolIcon,
   Language as LanguageIcon,
-  Star as StarIcon,
   Verified as VerifiedIcon,
   LocationOn as LocationIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
-  Link as LinkIcon,
   Upload as UploadIcon,
 } from '@mui/icons-material';
 

@@ -14,6 +14,7 @@ import ProfilePage from './pages/ProfilePage';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import OAuthCallbackPage from './pages/OAuthCallbackPage';
 
 // 创建主题
 const theme = createTheme({
@@ -93,6 +94,8 @@ function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/auth/google/callback" element={<OAuthCallbackPage />} />
+              <Route path="/auth/github/callback" element={<OAuthCallbackPage />} />
             </Routes>
           </div>
         </Router>

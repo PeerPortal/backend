@@ -24,9 +24,7 @@ import {
   IconButton,
 } from '@mui/material';
 import {
-  FilterList as FilterIcon,
   Verified as VerifiedIcon,
-  Star as StarIcon,
   Chat as ChatIcon,
   Bookmark as BookmarkIcon,
   LocationOn as LocationIcon,
@@ -49,6 +47,7 @@ const MentorSearchPage = () => {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  // eslint-disable-next-line no-unused-vars
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   const [selectedMentor, setSelectedMentor] = useState(null);
 
@@ -147,6 +146,7 @@ const MentorSearchPage = () => {
 
   useEffect(() => {
     searchMentors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, page]);
 
   const searchMentors = async () => {

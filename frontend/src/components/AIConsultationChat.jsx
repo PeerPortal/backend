@@ -20,9 +20,12 @@ const AIConsultationChat = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
-  // const [userProfile, setUserProfile] = useState(null);
+  // eslint-disable-next-line no-unused-vars
+  const [userProfile, setUserProfile] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [analysis, setAnalysis] = useState(null);
-  // const [recommendations, setRecommendations] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const [recommendations, setRecommendations] = useState([]);
   const [chatPhase, setChatPhase] = useState('greeting'); // greeting, profile, analysis, recommendations, strategy, chat
 
   const messagesEndRef = useRef(null);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -21,10 +21,12 @@ import {
   Google as GoogleIcon,
   GitHub as GitHubIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { initiateOAuth, isOAuthEnabled } from '../utils/oauth';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -32,6 +34,17 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // 检查是否有注册成功的消息
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      if (location.state?.email) {
+        setFormData(prev => ({ ...prev, email: location.state.email }));
+      }
+    }
+  }, [location.state]);
 
   const handleChange = (e) => {
     setFormData({
@@ -46,25 +59,47 @@ const LoginPage = () => {
     setError('');
 
     try {
-      // 模拟登录API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (formData.email === 'alice@example.com' && formData.password === 'password123') {
-        // 登录成功
+      // 使用真实的后端API
+      const response = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          username: formData.email,
+          password: formData.password
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // 存储token
+        localStorage.setItem('access_token', data.access_token);
+        // 登录成功，跳转到主页
         navigate('/');
       } else {
-        setError('邮箱或密码错误');
+        const errorData = await response.json();
+        setError(errorData.detail || '登录失败，请检查用户名和密码');
       }
     } catch (err) {
-      setError('登录失败，请重试');
+      setError('网络错误，请重试');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSocialLogin = (provider) => {
-    // 模拟第三方登录
-    console.log(`使用 ${provider} 登录`);
+  const handleSocialLogin = async (provider) => {
+    try {
+      if (!isOAuthEnabled(provider)) {
+        setError(`${provider === 'google' ? 'Google' : 'GitHub'}登录暂未配置，请使用邮箱密码登录`);
+        return;
+      }
+
+      setError('');
+      await initiateOAuth(provider);
+    } catch (err) {
+      setError(`${provider === 'google' ? 'Google' : 'GitHub'}登录失败: ${err.message}`);
+    }
   };
 
   return (
@@ -108,6 +143,13 @@ const LoginPage = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             欢迎回来！请登录您的账户
           </Typography>
+
+          {/* 成功提示 */}
+          {successMessage && (
+            <Alert severity="success" sx={{ width: '100%', mb: 2 }}>
+              {successMessage}
+            </Alert>
+          )}
 
           {/* 错误提示 */}
           {error && (
