@@ -1,7 +1,23 @@
 .env
 .venv/
 __pycache__/
-frontend/build/
-frontend/node_modules/
-.venv-1/
+# 新增的目录结构忽略规则
+logs/*.log
+logs/**/*.log
+backups/**
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE和编辑器
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 临时文件
+tmp/
+temp/
+cache/

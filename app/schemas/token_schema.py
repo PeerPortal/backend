@@ -7,7 +7,7 @@ from typing import Optional
 
 class TokenPayload(BaseModel):
     """JWT Token 载荷数据模型"""
-    sub: str  # subject (用户ID)
+    sub: str  # subject (用户名)
     role: Optional[str] = None
     email: Optional[str] = None
     exp: Optional[int] = None  # expiration time
@@ -17,6 +17,7 @@ class TokenPayload(BaseModel):
 class AuthenticatedUser(BaseModel):
     """经过认证的用户数据模型"""
     id: str
+    username: str  # 添加用户名字段
     role: Optional[str] = None
     email: Optional[str] = None
 
@@ -25,6 +26,7 @@ class Token(BaseModel):
     """Token 响应数据模型"""
     access_token: str
     token_type: str = "bearer"
+    expires_in: Optional[int] = None  # 添加过期时间字段（秒数）
 
 
 class TokenData(BaseModel):
