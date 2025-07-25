@@ -18,7 +18,7 @@ router = APIRouter()
 async def create_student_profile(
     student_data: StudentCreate,
     db_conn=Depends(get_db_or_supabase),
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: AuthenticatedUser = Depends(get_current_user)  # 移除角色限制，允许任何用户创建学生资料
 ):
     """完善申请者资料"""
     try:

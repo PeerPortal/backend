@@ -63,21 +63,24 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # 注册所有路由模块
 from app.api.routers import (
-    auth_router, user_router, mentor_router, student_router,
-    matching_router, service_router, session_router, review_router, message_router
+    auth_router, user_router, matching_router, session_router, review_router, message_router
 )
+# 使用修复后的路由
+from app.api.routers.mentor_router_fixed import router as mentor_router_fixed
+from app.api.routers.student_router_fixed import router as student_router_fixed
+from app.api.routers.service_router_fixed import router as service_router_fixed
 
 # 用户认证和管理
 app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["认证系统"])
 app.include_router(user_router.router, prefix="/api/v1/users", tags=["用户管理"])
 
 # 留学平台核心功能
-app.include_router(mentor_router.router, prefix="/api/v1/mentors", tags=["学长学姐"])
-app.include_router(student_router.router, prefix="/api/v1/students", tags=["学弟学妹"])
+app.include_router(mentor_router_fixed, prefix="/api/v1/mentors", tags=["学长学姐"])
+app.include_router(student_router_fixed, prefix="/api/v1/students", tags=["学弟学妹"])
 app.include_router(matching_router.router, prefix="/api/v1/matching", tags=["智能匹配"])
 
 # 服务和交易
-app.include_router(service_router.router, prefix="/api/v1/services", tags=["指导服务"])
+app.include_router(service_router_fixed, prefix="/api/v1/services", tags=["指导服务"])
 app.include_router(session_router.router, prefix="/api/v1/sessions", tags=["指导会话"])
 
 # 评价和反馈

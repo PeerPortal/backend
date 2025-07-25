@@ -15,6 +15,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """用户创建数据模型"""
     password: str = Field(..., min_length=6, description="密码")
+    role: Optional[str] = Field(default="user", description="用户角色: user, student, mentor, admin")
 
 
 class UserUpdate(BaseModel):
@@ -32,6 +33,8 @@ class UserLogin(BaseModel):
 class UserRead(UserBase):
     """用户读取数据模型"""
     id: int
+    role: str = Field(default="user", description="用户角色")
+    is_active: bool = Field(default=True, description="用户是否激活")
     created_at: datetime
     
     model_config = {

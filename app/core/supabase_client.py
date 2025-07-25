@@ -50,15 +50,38 @@ class SupabaseClient:
         """插入数据"""
         url = f"{self.base_url}/{table}"
         
+        # 添加Prefer头以确保返回插入的数据
+        headers = {**self.headers, "Prefer": "return=representation"}
+        
         try:
             response = await self.client.post(
                 url, 
-                headers=self.headers, 
+                headers=headers, 
                 json=data
             )
             response.raise_for_status()
-            result = response.json()
-            return result[0] if result else {}
+            
+            # 检查响应是否为空
+            if not response.content:
+                logger.warning(f"Supabase insert 返回空响应: table={table}")
+                return {}
+            
+            try:
+                result = response.json()
+                return result[0] if result and isinstance(result, list) else result
+            except ValueError as json_err:
+                logger.error(f"JSON解析失败: {response.text}")
+                # 如果JSON解析失败，但状态码正确，认为插入成功
+                if response.status_code in [200, 201]:
+                    return {"success": True, "message": "数据插入成功"}
+                raise
+                
+        except httpx.HTTPStatusError as http_err:
+            logger.error(f"Supabase HTTP错误: {http_err.response.status_code} - {http_err.response.text}")
+            raise HTTPException(
+                status_code=http_err.response.status_code, 
+                detail=f"数据插入失败: {http_err.response.text}"
+            )
         except Exception as e:
             logger.error(f"Supabase insert 错误: {e}")
             raise HTTPException(status_code=500, detail=f"数据插入失败: {str(e)}")
