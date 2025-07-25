@@ -24,16 +24,10 @@ class ServiceUpdate(BaseModel):
     duration_hours: Optional[int] = None
 
 class ServiceRead(ServiceBase):
-    """服务详情"""
+    """服务详情 - 匹配实际 services 表结构"""
     id: int
     navigator_id: int  # 对应实际表中的 navigator_id 字段
-    skill_id: Optional[int] = None
-    tags: Optional[List[str]] = Field(default_factory=list, description="标签")
-    requirements: Optional[str] = None
-    deliverables: Optional[str] = None
     is_active: bool = Field(default=True, description="是否可用")
-    total_orders: int = Field(default=0, description="总订单数")
-    rating: Optional[float] = Field(None, description="服务评分")
     created_at: datetime
     updated_at: datetime
     
@@ -41,7 +35,7 @@ class ServiceRead(ServiceBase):
         from_attributes = True
 
 class ServicePublic(BaseModel):
-    """公开的服务信息（用于搜索和展示）"""
+    """公开的服务信息（用于搜索和展示） - 匹配实际 services 表结构"""
     id: int
     navigator_id: int
     title: str
@@ -49,8 +43,9 @@ class ServicePublic(BaseModel):
     category: str
     price: int
     duration_hours: int
-    rating: Optional[float] = None
-    total_orders: int = Field(default=0)
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
     
     class Config:
         from_attributes = True

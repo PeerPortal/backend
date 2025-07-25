@@ -54,8 +54,8 @@ class MentorCRUD:
                 data=create_data
             )
             
-            if response and len(response) > 0:
-                return response[0]
+            if response:
+                return response
             return None
             
         except Exception as e:

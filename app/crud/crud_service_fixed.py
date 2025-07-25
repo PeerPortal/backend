@@ -2,7 +2,7 @@
 修复后的服务CRUD操作 - 匹配实际的 services 表结构
 """
 from typing import Optional, List
-from app.core.supabase_client import supabase_client
+from app.core.supabase_client import get_supabase_client
 from app.schemas.service_schema import ServiceCreate, ServiceRead, ServiceUpdate
 from datetime import datetime
 
@@ -13,6 +13,7 @@ class ServiceCRUD:
     async def get_service(self, service_id: int) -> Optional[dict]:
         """获取服务详情"""
         try:
+            supabase_client = await get_supabase_client()
             response = await supabase_client.select(
                 table=self.table,
                 columns="*",
@@ -28,17 +29,15 @@ class ServiceCRUD:
     async def create_service(self, navigator_id: int, service_data: ServiceCreate) -> Optional[dict]:
         """创建服务"""
         try:
-            # 构建符合数据库表结构的数据
+            supabase_client = await get_supabase_client()
+            # 构建符合数据库表结构的数据 - 只使用表中实际存在的字段
             create_data = {
                 "navigator_id": navigator_id,
                 "title": service_data.title,
                 "description": service_data.description,
                 "category": service_data.category,
                 "price": int(service_data.price),  # 确保是整数类型
-                "duration_hours": service_data.duration_hours,
-                "is_active": True,
-                "total_orders": 0,
-                "rating": None
+                "duration_hours": service_data.duration_hours
             }
             
             response = await supabase_client.insert(
@@ -46,8 +45,8 @@ class ServiceCRUD:
                 data=create_data
             )
             
-            if response and len(response) > 0:
-                return response[0]
+            if response:
+                return response
             return None
             
         except Exception as e:
@@ -57,6 +56,7 @@ class ServiceCRUD:
     async def update_service(self, service_id: int, navigator_id: int, service_data: ServiceUpdate) -> Optional[dict]:
         """更新服务"""
         try:
+            supabase_client = await get_supabase_client()
             # 构建更新数据
             update_data = {}
             if service_data.title is not None:
@@ -92,6 +92,7 @@ class ServiceCRUD:
     async def delete_service(self, service_id: int, navigator_id: int) -> bool:
         """删除服务"""
         try:
+            supabase_client = await get_supabase_client()
             response = await supabase_client.delete(
                 table=self.table,
                 filters={"id": service_id, "navigator_id": navigator_id}
@@ -104,6 +105,7 @@ class ServiceCRUD:
     async def get_services_by_navigator(self, navigator_id: int) -> List[dict]:
         """获取指定导航者的所有服务"""
         try:
+            supabase_client = await get_supabase_client()
             response = await supabase_client.select(
                 table=self.table,
                 columns="*",
@@ -123,6 +125,7 @@ class ServiceCRUD:
                             offset: int = 0) -> List[dict]:
         """搜索服务"""
         try:
+            supabase_client = await get_supabase_client()
             filters = {"is_active": is_active}
             
             if category:

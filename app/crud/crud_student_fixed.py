@@ -29,7 +29,10 @@ class StudentCRUD:
     async def create_student_profile(self, user_id: int, student_data: StudentCreate) -> Optional[dict]:
         """创建申请者资料"""
         try:
+            print(f"🔧 开始创建申请者资料，用户ID: {user_id}")
             supabase_client = await get_supabase_client()
+            print(f"✅ 获取Supabase客户端成功")
+            
             # 构建符合数据库表结构的数据
             create_data = {
                 "user_id": user_id,
@@ -46,17 +49,26 @@ class StudentCRUD:
                 "expires_at": (datetime.now() + timedelta(days=90)).isoformat()  # 3个月后过期
             }
             
+            print(f"📤 准备插入数据: {create_data}")
+            
             response = await supabase_client.insert(
                 table=self.table,
                 data=create_data
             )
             
-            if response and len(response) > 0:
-                return response[0]
+            print(f"📥 数据库响应: {response}")
+            
+            if response:
+                print(f"✅ 创建成功: {response}")
+                return response
+            
+            print("❌ 响应为空或无数据")
             return None
             
         except Exception as e:
-            print(f"创建申请者资料失败: {e}")
+            print(f"💥 创建申请者资料失败，详细错误: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     async def update_student_profile(self, user_id: int, student_data: StudentUpdate) -> Optional[dict]:
