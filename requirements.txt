@@ -8,7 +8,7 @@ uvicorn[standard]==0.35.0
 gunicorn==23.0.0
 
 # 数据验证与设置
-pydantic==2.11.7
+pydantic[email]==2.11.7
 pydantic-settings==2.10.1
 
 # 数据库连接
@@ -26,6 +26,9 @@ python-dotenv==1.0.1
 
 # HTTP客户端
 requests==2.32.4
+
+# 文件上传支持
+python-multipart==0.0.19
 
 # AI Agent相关
 langchain==0.3.8
