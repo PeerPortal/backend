@@ -59,11 +59,37 @@ class AdvancedPlannerAgent:
 - 查询平台数据库匹配合适的引路人和服务
 - 提供个性化的留学申请建议和规划
 
-🛠️ 工具使用策略：
-1. **知识库优先**: 对于留学申请策略、文书写作、成功案例等问题，优先使用知识库检索
-2. **网络搜索补充**: 对于最新排名、申请要求变更、时事新闻等，使用网络搜索
-3. **平台数据查询**: 对于寻找引路人、服务推荐等，使用平台数据库工具
-4. **记忆连贯性**: 结合对话历史提供连贯的个性化建议
+🛠️ 工具使用策略（严格遵循优先级）：
+
+1. **知识库检索 - 最高优先级** (必须使用 knowledge_base_retriever 工具)：
+   ⚠️ 遇到以下任何情况，必须首先调用 knowledge_base_retriever 工具：
+   - 询问具体的申请案例或成功案例
+   - 提到具体的GPA、托福、GRE分数及对应结果
+   - 询问特定学校（如CMU、Stanford、Harvard等）的申请信息
+   - 文书写作的具体技巧和要点
+   - 推荐信准备的详细步骤
+   - 面试准备的建议
+   - 申请时间规划和流程
+   - 申请费用预算
+   - 任何提到"知识库"、"文档"、"案例"、"根据上传的"等关键词
+   - 用户明确要求查看平台已有的信息或案例
+
+2. **网络搜索补充** (使用 web_search 工具)：
+   - 最新的大学排名和录取率
+   - 当前年度的申请要求变更
+   - 最新的签证政策和入学政策
+   - 时事新闻和教育政策更新
+
+3. **平台数据查询** (使用相关工具)：
+   - 寻找引路人和导师推荐
+   - 服务推荐和匹配
+   - 平台用户数据查询
+
+📋 关键工具选择规则：
+- 如果问题涉及具体数据、案例、分数、学校名称 → 必须使用 knowledge_base_retriever
+- 如果问题询问"根据文档"、"案例中"、"知识库里" → 必须使用 knowledge_base_retriever  
+- 如果问题涉及当前年份的最新信息 → 使用 web_search
+- 先检索知识库，如果没有找到相关信息，再考虑网络搜索
 
 💬 对话风格：
 - 专业但亲切，像经验丰富的学长学姐
@@ -75,7 +101,8 @@ class AdvancedPlannerAgent:
 🚀 特别提醒：
 - 如果用户询问"上一条问题问的是什么"，请回顾对话历史中的前一个用户问题
 - 始终保持专业的留学顾问身份
-- 优先使用已有的工具和知识，避免凭空编造信息"""
+- 优先使用已有的工具和知识，避免凭空编造信息
+- 遇到具体案例、分数、学校相关问题时，务必先调用知识库检索工具"""
     
     def _build_graph(self) -> StateGraph:
         """构建LangGraph执行图"""
@@ -108,6 +135,12 @@ class AdvancedPlannerAgent:
     def _agent_node(self, state: AgentState) -> Dict[str, Any]:
         """Agent节点：负责调用LLM进行决策"""
         try:
+            # 准备消息历史
+            messages = state.get("messages", [])
+            if not messages:
+                # 如果没有消息历史，创建初始消息
+                messages = [HumanMessage(content=state["input"])]
+            
             # 调用agent进行推理
             response = self.agent.invoke({
                 "input": state["input"],
@@ -123,9 +156,20 @@ class AdvancedPlannerAgent:
                 print(f"📋 列表长度: {len(response)}")
                 for i, item in enumerate(response):
                     print(f"  项目 {i}: {type(item)}")
+                    if hasattr(item, 'tool'):
+                        print(f"    工具: {item.tool}")
+            
+            # 更新messages以支持工具调用
+            updated_messages = messages.copy()
+            if isinstance(response, list) and len(response) > 0:
+                # 对于工具调用，需要添加AI消息到消息历史
+                first_action = response[0]
+                if hasattr(first_action, 'message_log') and first_action.message_log:
+                    updated_messages.extend(first_action.message_log)
             
             return {
                 "agent_outcome": response,
+                "messages": updated_messages,
                 "intermediate_steps": state.get("intermediate_steps", [])
             }
             
@@ -133,7 +177,8 @@ class AdvancedPlannerAgent:
             print(f"❌ Agent节点执行出错: {str(e)}")
             return {
                 "error": f"Agent执行出错: {str(e)}",
-                "agent_outcome": None
+                "agent_outcome": None,
+                "messages": state.get("messages", [])
             }
     
     def _should_continue(self, state: AgentState) -> str:
@@ -150,6 +195,12 @@ class AdvancedPlannerAgent:
         # 检查是否是AgentAction对象（旧版本兼容）
         if hasattr(agent_outcome, 'tool') and hasattr(agent_outcome, 'tool_input'):
             return "continue"
+        
+        # 检查是否是包含ToolAgentAction的列表
+        if isinstance(agent_outcome, list) and len(agent_outcome) > 0:
+            first_item = agent_outcome[0]
+            if hasattr(first_item, 'tool') and hasattr(first_item, 'tool_input'):
+                return "continue"
             
         return "end"
     
@@ -179,6 +230,7 @@ class AdvancedPlannerAgent:
                 # 准备初始状态
                 initial_state = {
                     "input": input_message,
+                    "messages": [HumanMessage(content=input_message)],
                     "chat_history": input_data.get("chat_history", []),
                     "intermediate_steps": [],
                     "session_id": trace_session_id,
@@ -303,6 +355,7 @@ class AdvancedPlannerAgent:
             # 准备初始状态
             initial_state = {
                 "input": input_data["input"],
+                "messages": [HumanMessage(content=input_data["input"])],
                 "chat_history": input_data.get("chat_history", []),
                 "intermediate_steps": [],
                 "session_id": input_data.get("session_id"),

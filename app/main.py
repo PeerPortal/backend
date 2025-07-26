@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.db import lifespan, check_db_health
@@ -69,6 +70,10 @@ from app.api.routers import (
 from app.api.routers.mentor_router_fixed import router as mentor_router_fixed
 from app.api.routers.student_router_fixed import router as student_router_fixed
 from app.api.routers.service_router_fixed import router as service_router_fixed
+# 论坛系统路由
+from app.api.routers.forum_router import router as forum_router
+# 文件上传路由
+from app.api.routers.file_router import router as file_router
 # AI留学规划师路由
 from app.api.routers.planner_router import router as planner_router
 from app.api.routers.advanced_planner_router import router as advanced_planner_router
@@ -92,9 +97,18 @@ app.include_router(review_router.router, prefix="/api/v1/reviews", tags=["评价
 # 消息系统
 app.include_router(message_router.router, prefix="/api/v1/messages", tags=["消息系统"])
 
-# AI留学规划师
-app.include_router(planner_router, prefix="/api/v1/ai", tags=["AI留学规划师"])
-app.include_router(advanced_planner_router, prefix="/api/v1/ai", tags=["高级AI留学规划师"])
+# 论坛系统
+app.include_router(forum_router, prefix="/api/v1/forum", tags=["论坛系统"])
+
+# 文件上传系统
+app.include_router(file_router, prefix="/api/v1/files", tags=["文件上传"])
+
+# AI留学规划师 (修复路径以匹配前端调用)
+app.include_router(planner_router, prefix="/api/v1", tags=["AI留学规划师"])
+app.include_router(advanced_planner_router, prefix="/api/v1", tags=["高级AI留学规划师"])
+
+# 静态文件服务 (用于提供上传的文件)
+app.mount("/static", StaticFiles(directory="uploads"), name="static")
 
 @app.get("/", summary="平台首页", description="留学双边信息平台API首页")
 async def read_root():

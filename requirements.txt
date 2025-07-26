@@ -1,6 +1,6 @@
-# 留学双边信息平台 - 后端依赖包
-# 更新日期: 2024-01-01
-# Python 版本要求: >=3.11
+# PeerPortal 留学平台 - 后端依赖包
+# 更新日期: 2024-07-26
+# Python 版本要求: >=3.8
 
 # 核心Web框架
 fastapi==0.116.1
@@ -29,6 +29,7 @@ requests==2.32.4
 
 # 文件上传支持
 python-multipart==0.0.19
+aiofiles==24.1.0
 
 # AI Agent相关
 langchain==0.3.8
@@ -53,3 +54,6 @@ streamlit==1.41.1
 pytest==8.3.4
 pytest-asyncio==0.25.0
 httpx==0.28.1
+
+# 新增功能依赖
+# 注意: asyncio 是 Python 内置模块，无需安装

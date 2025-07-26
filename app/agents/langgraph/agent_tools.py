@@ -7,10 +7,13 @@ from langchain.tools import Tool
 from langchain_community.tools.ddg_search import DuckDuckGoSearchRun
 
 try:
-    from langchain_tavily import TavilySearch as TavilySearchResults
+    from langchain_tavily import TavilySearchResults
 except ImportError:
     # Fallback to old import if new package not available
-    from langchain_community.tools.tavily_search import TavilySearchResults
+    try:
+        from langchain_community.tools.tavily_search import TavilySearchResults
+    except ImportError:
+        TavilySearchResults = None
 
 from app.core.config import settings
 from app.agents.tools.database_tools import (
@@ -28,16 +31,29 @@ def get_search_tool() -> Tool:
     try:
         # 尝试使用Tavily搜索（需要API key）
         if settings.TAVILY_API_KEY and settings.TAVILY_API_KEY != "your-tavily-api-key-optional":
-            return TavilySearchResults(
-                max_results=3,
-                name="web_search",
-                description="搜索最新的大学信息、申请要求、排名、截止日期和留学相关新闻。当需要查询实时信息或知识库中没有相关内容时使用。",
-                tavily_api_key=settings.TAVILY_API_KEY
-            )
+            if TavilySearchResults:
+                try:
+                    # 新版本的langchain_tavily
+                    from langchain_tavily import TavilySearchResults as TavilyTool
+                    return TavilyTool(
+                        max_results=3,
+                        name="web_search",
+                        description="搜索最新的大学信息、申请要求、排名、截止日期和留学相关新闻。当需要查询实时信息或知识库中没有相关内容时使用。",
+                        api_key=settings.TAVILY_API_KEY
+                    )
+                except ImportError:
+                    # 使用旧版本
+                    return TavilySearchResults(
+                        max_results=3,
+                        name="web_search", 
+                        description="搜索最新的大学信息、申请要求、排名、截止日期和留学相关新闻。当需要查询实时信息或知识库中没有相关内容时使用。",
+                        tavily_api_key=settings.TAVILY_API_KEY
+                    )
     except Exception as e:
         print(f"⚠️ Tavily搜索工具初始化失败: {e}")
     
     # 备选：使用免费的DuckDuckGo搜索
+    print("🔄 使用DuckDuckGo搜索作为备选")
     return DuckDuckGoSearchRun(
         name="web_search",
         description="搜索最新的大学信息、申请要求、排名、截止日期和留学相关新闻。当需要查询实时信息或知识库中没有相关内容时使用。"
