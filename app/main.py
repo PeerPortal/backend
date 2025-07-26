@@ -38,12 +38,41 @@ app = FastAPI(
 )
 
 # CORS配置（支持前端跨域访问）
+# 开发环境和生产环境的动态配置
+allowed_origins = [
+    "http://localhost:3000",  # Next.js 开发服务器
+    "http://127.0.0.1:3000", # 本地回环地址
+    "http://localhost:8080",  # 备用前端端口
+    "https://yourdomain.com", # 生产环境域名
+    "https://www.yourdomain.com", # 生产环境 www 域名
+]
+
+# 如果是开发环境，允许更多本地端口
+if settings.DEBUG:
+    allowed_origins.extend([
+        "http://localhost:3001",
+        "http://localhost:3002", 
+        "http://localhost:4173",  # Vite preview
+        "http://localhost:5173",  # Vite dev server
+    ])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://yourdomain.com"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language", 
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "X-CSRF-Token",
+        "Cache-Control",
+    ],
+    expose_headers=["Content-Length", "X-Request-ID"],
+    max_age=3600,  # 预检请求缓存时间
 )
 
 # 信任主机中间件（安全配置）
