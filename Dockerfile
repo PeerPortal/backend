@@ -34,7 +34,7 @@ RUN apt-get update \
     && apt-get clean
 
 # 复制requirements文件并安装Python依赖
-COPY requirements-minimal.txt ./requirements.txt
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
