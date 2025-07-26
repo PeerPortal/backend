@@ -47,15 +47,20 @@ docker-compose*.yml
 .dockerignore
 
 # Documentation
-*.md
 docs/
 README*
+
+# Allow specific md files needed in container
+!AI_AGENT_快速入门.md
 
 # Tests
 test/
 tests/
 *_test.py
 test_*.py
+
+# Allow specific test files needed in container
+!test_v2_config.py
 
 # Logs
 *.log
