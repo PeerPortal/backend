@@ -74,9 +74,14 @@ backend/
 │   │   └── ...                  # 其他数据模型
 │   ├── main.py                  # FastAPI应用入口
 │   └── streamlit_app.py         # Streamlit Web界面
-├── test/                        # 测试文件
-│   ├── agents/                  # Agent测试
-│   └── *.py                     # 其他功能测试
+├── test/                        # 测试文件 (按功能分类)
+│   ├── agents/                  # AI Agent测试 (18个文件)
+│   ├── api/                     # API功能测试 (12个文件)
+│   ├── database/                # 数据库测试 (10个文件)
+│   ├── integration/             # 集成测试 (3个文件)
+│   ├── tools/                   # 测试工具 (12个文件)
+│   ├── scripts/                 # 测试脚本 (8个文件)
+│   └── reports/                 # 测试报告 (11个文件)
 ├── scripts/                     # 工具脚本
 │   ├── database/                # 数据库相关脚本
 │   │   └── create_missing_tables.sql # 新增表结构 (新增)
@@ -164,15 +169,19 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ```bash
 # 一键测试所有新功能 (推荐)
-./run_feature_tests.sh
+cd test/scripts && ./run_feature_tests.sh
 
-# 分别运行测试
-python test_new_features.py          # API功能测试
-python test_database_tables.py       # 数据库结构验证
-python fix_test_issues.py           # 环境诊断
+# 按模块运行测试
+python -m pytest test/api/           # API功能测试
+python -m pytest test/database/     # 数据库测试
+python -m pytest test/agents/       # AI Agent测试
+python -m pytest test/integration/  # 集成测试
+
+# 使用测试工具
+cd test/tools && python fix_test_issues.py  # 环境诊断
 
 # 或运行完整测试套件
-./run_tests.sh
+cd test/scripts && ./run_tests.sh
 ```
 
 ## 🛠️ 技术栈
@@ -357,7 +366,7 @@ response = await client.post(
 #### 🔧 环境诊断工具
 ```bash
 # 运行环境诊断
-python fix_test_issues.py
+cd test/tools && python fix_test_issues.py
 ```
 **功能**:
 - Python版本检查
@@ -370,7 +379,7 @@ python fix_test_issues.py
 #### 📊 综合功能测试
 ```bash
 # 运行所有新功能测试
-python test_new_features.py
+cd test/api && python test_new_features.py
 ```
 **测试范围**:
 - 🏛️ 论坛系统 (4个API端点)
@@ -382,7 +391,7 @@ python test_new_features.py
 #### 🗄️ 数据库结构验证
 ```bash
 # 验证数据库表结构
-python test_database_tables.py
+cd test/database && python test_database_tables.py
 ```
 **验证内容**:
 - 表存在性检查 (5个新增表)
@@ -394,7 +403,7 @@ python test_database_tables.py
 #### 🚀 一键测试脚本
 ```bash
 # 运行完整测试套件
-./run_feature_tests.sh
+cd test/scripts && ./run_feature_tests.sh
 ```
 **自动化功能**:
 - 环境检查和修复
