@@ -59,6 +59,12 @@ class AgentConfig:
     timeout_seconds: int = 30
     tools: Optional[List[str]] = None
     system_prompt: Optional[str] = None
+    memory_enabled: bool = True
+    rag_enabled: bool = True
+    
+    def __post_init__(self):
+        if self.tools is None:
+            self.tools = []
 
 
 class StudyPlannerAgent:
