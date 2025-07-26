@@ -43,8 +43,8 @@ allowed_origins = [
     "http://localhost:3000",  # Next.js 开发服务器
     "http://127.0.0.1:3000", # 本地回环地址
     "http://localhost:8080",  # 备用前端端口
-    "https://yourdomain.com", # 生产环境域名
-    "https://www.yourdomain.com", # 生产环境 www 域名
+    "*.vercel.app", # 生产环境域名
+    "*.com", # 生产环境 www 域名
 ]
 
 # 如果是开发环境，允许更多本地端口
