@@ -1,4 +1,13 @@
-# Python
+# PeerPortal AI智能体系统 v2.0 - Docker构建忽略文件
+# 优化构建上下文，提升构建速度
+
+# ==================== Git 和版本控制 ====================
+.git/
+.gitignore
+.gitattributes
+.gitmodules
+
+# ==================== Python 缓存和环境 ====================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -21,89 +30,98 @@ wheels/
 *.egg
 MANIFEST
 
-# PyCharm
-.idea/
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+.env/
 
-# VS Code
+# ==================== IDE 和编辑器 ====================
 .vscode/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-configs/.env
-
-# Git
-.git/
-.gitignore
-.github/
-
-# Docker
-Dockerfile*
-docker-compose*.yml
-.dockerignore
-
-# Documentation
-docs/
-README*
-
-# Allow specific md files needed in container
-!AI_AGENT_快速入门.md
-
-# Tests
-test/
-tests/
-*_test.py
-test_*.py
-
-# Allow specific test files needed in container
-!test_v2_config.py
-
-# Logs
-*.log
-logs/
-
-# Temporary files
-*.tmp
-*.temp
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
 
-# Database
-*.db
-*.sqlite3
+# ==================== 日志和运行时文件 ====================
+logs/
+*.log
+startup.log
+server.log
+*.pid
+*.seed
+*.lock
 
-# Node modules (if any)
-node_modules/
-
-# Coverage reports
-htmlcov/
+# ==================== 测试和覆盖率 ====================
 .coverage
-.coverage.*
+.pytest_cache/
+.tox/
+htmlcov/
+.nox/
 coverage.xml
+*.cover
+.hypothesis/
 
-# mypy
+# ==================== 数据和上传文件 ====================
+uploads/
+vector_store/
+*.sqlite3
+*.db
+
+# ==================== 文档和说明 ====================
+README.md
+*.md
+docs/
+!AI_AGENT_快速入门.md
+
+# ==================== Docker 相关 ====================
+Dockerfile.*
+docker-compose*.yml
+.dockerignore
+
+# ==================== 部署和脚本 ====================
+deploy.sh
+start_*.sh
+scripts/deployment/
+scripts/testing/
+
+# ==================== 备份和临时文件 ====================
+backups/
+legacy_backup/
+*.tmp
+*.temp
+.cache/
+.temp/
+
+# ==================== 前端文件（如果不需要） ====================
+frontend/
+node_modules/
+*.lock
+
+# ==================== 特定环境文件 ====================
+.env*
+!.env.example
+docker-env-example.txt
+configs/env_example.txt
+
+# ==================== 测试文件 ====================
+test/
+*_test.py
+test_*.py
+
+# ==================== 系统和IDE缓存 ====================
 .mypy_cache/
 .dmypy.json
 dmypy.json
+.pytype/
+.pyre/
 
-# Frontend build (if exists)
-frontend/build/
-frontend/dist/
-
-# Legacy and backup files
-legacy_backup/
-*.backup
+# ==================== 其他开发文件 ====================
 *.bak
-
-# Debug files
-debug_*.py
-
-# Scripts that shouldn't be in container
-scripts/
-organize_project.py
-fix_*.py
-update_*.py
+*.orig
+evaluation_datasets/
+.jupyter/
+.ipynb_checkpoints/
