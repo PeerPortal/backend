@@ -4,7 +4,7 @@ from app.api.deps import get_current_user, get_db_or_supabase
 from app.schemas.token_schema import AuthenticatedUser
 from app.schemas.message_schema import (
     MessageCreate, Message, ConversationListItem, 
-    MessageListResponse, ConversationListResponse
+    MessageListResponse, ConversationListResponse, MultiModalMessageCreate
 )
 from app.crud.crud_message import message_crud
 
@@ -59,6 +59,35 @@ async def send_message(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"发送消息失败: {str(e)}"
+        )
+
+@router.post(
+    "/multi-modal",
+    response_model=Message,
+    status_code=status.HTTP_201_CREATED,
+    summary="发送多模态消息",
+    description="发送新的多模态消息，可以包含文本和图片"
+)
+async def send_multi_modal_message(
+    message_data: MultiModalMessageCreate,
+    db_conn=Depends(get_db_or_supabase),
+    current_user: AuthenticatedUser = Depends(get_current_user)
+):
+    """发送多模态消息"""
+    try:
+        message = await message_crud.create_multi_modal_message(db_conn, int(current_user.id), message_data)
+        if not message:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="发送多模态消息失败"
+            )
+        return message
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"发送多模态消息失败: {str(e)}"
         )
 
 @router.get(
@@ -155,4 +184,4 @@ async def get_conversation_messages(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取对话消息失败: {str(e)}"
-        ) 
+        )

@@ -335,6 +335,82 @@ FROM messages m
 GROUP BY conversation_key, user1_id, user2_id;
 
 
+-- 私信功能的函数
+CREATE OR REPLACE FUNCTION get_conversation_between_users(user1_id INT, user2_id INT)
+RETURNS TABLE(id INT)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT cp1.conversation_id
+    FROM conversation_participants AS cp1
+    JOIN conversation_participants AS cp2 ON cp1.conversation_id = cp2.conversation_id
+    WHERE cp1.user_id = user1_id AND cp2.user_id = user2_id
+    LIMIT 1;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_user_conversations(p_user_id INT, p_limit INT, p_offset INT)
+RETURNS TABLE(
+    conversation_id INT,
+    other_user_details JSON,
+    last_message_content TEXT,
+    last_message_time TIMESTAMPTZ,
+    unread_count BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH user_convs AS (
+        SELECT c.id as conv_id, c.updated_at
+        FROM conversations c
+        JOIN conversation_participants cp ON c.id = cp.conversation_id
+        WHERE cp.user_id = p_user_id
+    ),
+    other_participants AS (
+        SELECT 
+            uc.conv_id,
+            u.id as other_user_id,
+            json_build_object('id', u.id, 'username', u.username, 'avatar_url', u.avatar_url, 'role', u.role) as other_user_info
+        FROM user_convs uc
+        JOIN conversation_participants cp ON uc.conv_id = cp.conversation_id
+        JOIN users u ON cp.user_id = u.id
+        WHERE cp.user_id != p_user_id
+    ),
+    last_messages AS (
+        SELECT 
+            c.id as conv_id,
+            m.content,
+            m.created_at
+        FROM conversations c
+        LEFT JOIN messages m ON c.last_message_id = m.id
+    ),
+    unread_counts AS (
+        SELECT 
+            m.conversation_id as conv_id,
+            count(*) as unread
+        FROM messages m
+        WHERE m.recipient_id = p_user_id AND NOT m.is_read
+        GROUP BY m.conversation_id
+    )
+    SELECT 
+        uc.conv_id,
+        op.other_user_info,
+        lm.content,
+        lm.created_at,
+        COALESCE(ucnt.unread, 0) as unread
+    FROM user_convs uc
+    JOIN other_participants op ON uc.conv_id = op.conv_id
+    LEFT JOIN last_messages lm ON uc.conv_id = lm.conv_id
+    LEFT JOIN unread_counts ucnt ON uc.conv_id = ucnt.conv_id
+    ORDER BY uc.updated_at DESC
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$$;
+
+
 -- 最终提醒信息
 DO $$
 BEGIN

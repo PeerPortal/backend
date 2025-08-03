@@ -102,7 +102,23 @@ def show_database_info():
     except Exception as e:
         print(f"❌ 获取数据库信息失败: {e}")
 
+def get_test_db():
+    """为测试提供数据库客户端"""
+    try:
+        yield supabase
+    finally:
+        pass
+
+def override_get_db():
+    """覆盖 FastAPI 依赖项以使用测试数据库"""
+    try:
+        db = next(get_test_db())
+        yield db
+    finally:
+        pass
+
 if __name__ == "__main__":
+
     success = setup_database()
     show_database_info()
     
@@ -111,4 +127,4 @@ if __name__ == "__main__":
         print("  ✨ 可以开始使用新架构的所有功能了")
     else:
         print("\n⚠️  请先在 Supabase 中创建表结构")
-        print("  📖 详细步骤请查看 QUICK_START.md") 
+        print("  📖 详细步骤请查看 QUICK_START.md")

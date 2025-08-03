@@ -10,6 +10,7 @@ except ImportError:
     pass  # 如果没有安装python-dotenv，继续使用系统环境变量
 
 import logging
+import time
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,7 +19,6 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.db import lifespan, check_db_health
-from app.api.routers import auth_router, user_router
 
 # 配置日志
 logging.basicConfig(
@@ -100,7 +100,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # 注册所有路由模块
 from app.api.routers import (
-    auth_router, user_router, matching_router, session_router, review_router, message_router
+    auth_router, user_router, matching_router, session_router, review_router, message_router, messages
 )
 # 使用修复后的路由
 from app.api.routers.mentor_router_fixed import router as mentor_router_fixed
@@ -132,8 +132,8 @@ app.include_router(session_router.router, prefix="/api/v1/sessions", tags=["指�
 # 评价和反馈
 app.include_router(review_router.router, prefix="/api/v1/reviews", tags=["评价反馈"])
 
-# 消息系统
-app.include_router(message_router.router, prefix="/api/v1/messages", tags=["消息系统"])
+# 消息系统 (私信)
+app.include_router(messages.router, prefix="/api/messages", tags=["私信"])
 
 # 论坛系统
 app.include_router(forum_router, prefix="/api/v1/forum", tags=["论坛系统"])
@@ -225,4 +225,4 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=settings.DEBUG,
         log_level="info" if settings.DEBUG else "warning"
-    ) 
+    )

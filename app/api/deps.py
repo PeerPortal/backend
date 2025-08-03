@@ -37,6 +37,13 @@ async def get_db_or_supabase():
         # 连接池未初始化，使用Supabase客户端
         yield {"type": "supabase", "connection": supabase_client}
 
+async def get_db():
+    """
+    统一的数据库依赖函数，供整个应用使用。
+    """
+    async for db_conn in get_db_or_supabase():
+        yield db_conn
+
 async def get_user_by_username(
     username: str, 
     db_conn = Depends(get_db_or_supabase)
@@ -192,4 +199,4 @@ def require_admin_role():
                 detail="此功能仅限管理员使用",
             )
         return current_user
-    return role_checker 
+    return role_checker
