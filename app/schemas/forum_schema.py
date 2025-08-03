@@ -9,12 +9,13 @@ from enum import Enum
 class UserRole(str, Enum):
     student = "student"
     mentor = "mentor"
+    user = "user"
 
 class ForumAuthor(BaseModel):
     """论坛作者信息"""
     id: int
     username: str
-    role: UserRole
+    role: Optional[UserRole] = None # Make role optional to accommodate all users
     university: Optional[str] = None
     major: Optional[str] = None
     avatar_url: Optional[str] = None
@@ -117,4 +118,4 @@ class LikeResponse(BaseModel):
     likes_count: int
 
 # 更新模型以支持递归引用
-ForumReply.model_rebuild() 
+ForumReply.model_rebuild()
