@@ -1,6 +1,7 @@
 -- 启航引路人项目数据库架构
--- 版本: 2.0
--- 更新时间: 2024-01-24
+-- 版本: 2.1
+-- 更新时间: 2024-07-26
+-- 描述: 合并了所有表结构到一个文件，保证创建顺序正确。
 
 -- 用户表（核心用户账户信息）
 CREATE TABLE IF NOT EXISTS users (
@@ -41,18 +42,6 @@ CREATE TABLE IF NOT EXISTS friends (
     CHECK (user_id != friend_id)
 );
 
--- 消息表
-CREATE TABLE IF NOT EXISTS messages (
-    id SERIAL PRIMARY KEY,
-    sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    receiver_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    content TEXT NOT NULL,
-    message_type VARCHAR(20) DEFAULT 'text',  -- text, image, file
-    is_read BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- 服务表（引路人提供的服务）
 CREATE TABLE IF NOT EXISTS services (
     id SERIAL PRIMARY KEY,
@@ -91,18 +80,135 @@ CREATE TABLE IF NOT EXISTS reviews (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 论坛帖子表
+CREATE TABLE IF NOT EXISTS forum_posts (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    category VARCHAR(50) NOT NULL,
+    tags TEXT[] DEFAULT '{}', -- PostgreSQL 数组类型
+    is_anonymous BOOLEAN DEFAULT FALSE, -- 新增匿名发帖字段
+    replies_count INTEGER DEFAULT 0,
+    likes_count INTEGER DEFAULT 0,
+    views_count INTEGER DEFAULT 0,
+    is_pinned BOOLEAN DEFAULT FALSE,
+    is_hot BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 论坛回复表
+CREATE TABLE IF NOT EXISTS forum_replies (
+    id SERIAL PRIMARY KEY,
+    post_id INTEGER NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_reply_id INTEGER REFERENCES forum_replies(id) ON DELETE SET NULL, -- 更新外键约束
+    likes_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 论坛点赞记录表 (帖子)
+CREATE TABLE IF NOT EXISTS forum_likes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id INTEGER NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, post_id)
+);
+
+-- 论坛回复点赞记录表 (新增)
+CREATE TABLE IF NOT EXISTS forum_reply_likes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reply_id INTEGER NOT NULL REFERENCES forum_replies(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, reply_id)
+);
+
+-- 文件上传记录表
+CREATE TABLE IF NOT EXISTS uploaded_files (
+    id SERIAL PRIMARY KEY,
+    file_id UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    filename VARCHAR(255) NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_url VARCHAR(500) NOT NULL,
+    file_size INTEGER NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
+    file_type VARCHAR(20) NOT NULL CHECK (file_type IN ('avatar', 'document', 'other')),
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 消息表
+CREATE TABLE IF NOT EXISTS messages (
+    id SERIAL PRIMARY KEY,
+    conversation_id INTEGER, -- 可选，用于分组对话
+    sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    message_type VARCHAR(20) DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'file', 'system')),
+    status VARCHAR(20) DEFAULT 'sent' CHECK (status IN ('sent', 'delivered', 'read')),
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    read_at TIMESTAMP WITH TIME ZONE NULL,
+    CONSTRAINT messages_sender_recipient_check CHECK (sender_id != recipient_id)
+);
+
+
 -- 创建索引以提高查询性能
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
-CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_services_navigator ON services(navigator_id);
 CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
 CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client_id);
 CREATE INDEX IF NOT EXISTS idx_orders_navigator ON orders(navigator_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 
+-- 消息表索引
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_recipient_id ON messages(recipient_id);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_is_read ON messages(is_read) WHERE is_read = FALSE;
+
+-- 论坛帖子表索引
+CREATE INDEX IF NOT EXISTS idx_forum_posts_author_id ON forum_posts(author_id);
+CREATE INDEX IF NOT EXISTS idx_forum_posts_category ON forum_posts(category);
+CREATE INDEX IF NOT EXISTS idx_forum_posts_created_at ON forum_posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_forum_posts_last_activity ON forum_posts(last_activity DESC);
+CREATE INDEX IF NOT EXISTS idx_forum_posts_is_pinned ON forum_posts(is_pinned) WHERE is_pinned = TRUE;
+CREATE INDEX IF NOT EXISTS idx_forum_posts_is_hot ON forum_posts(is_hot) WHERE is_hot = TRUE;
+CREATE INDEX IF NOT EXISTS idx_forum_posts_tags ON forum_posts USING GIN(tags);
+
+-- 论坛回复表索引
+CREATE INDEX IF NOT EXISTS idx_forum_replies_post_id ON forum_replies(post_id);
+CREATE INDEX IF NOT EXISTS idx_forum_replies_author_id ON forum_replies(author_id);
+CREATE INDEX IF NOT EXISTS idx_forum_replies_parent_id ON forum_replies(parent_reply_id);
+CREATE INDEX IF NOT EXISTS idx_forum_replies_created_at ON forum_replies(created_at ASC);
+
+-- 论坛点赞表索引
+CREATE INDEX IF NOT EXISTS idx_forum_likes_user_id ON forum_likes(user_id);
+CREATE INDEX IF NOT EXISTS idx_forum_likes_post_id ON forum_likes(post_id);
+
+-- 论坛回复点赞表索引
+CREATE INDEX IF NOT EXISTS idx_forum_reply_likes_user_id ON forum_reply_likes(user_id);
+CREATE INDEX IF NOT EXISTS idx_forum_reply_likes_reply_id ON forum_reply_likes(reply_id);
+
+-- 文件上传表索引
+CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_id ON uploaded_files(user_id);
+CREATE INDEX IF NOT EXISTS idx_uploaded_files_file_type ON uploaded_files(file_type);
+CREATE INDEX IF NOT EXISTS idx_uploaded_files_created_at ON uploaded_files(created_at DESC);
+
+
+-- 创建触发器函数和触发器
 -- 创建更新时间戳的触发器函数
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -113,26 +219,129 @@ END;
 $$ language 'plpgsql';
 
 -- 为相关表添加更新时间戳触发器
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_friends_updated_at BEFORE UPDATE ON friends FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_services_updated_at BEFORE UPDATE ON services FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- 更新帖子回复数量的触发器函数
+CREATE OR REPLACE FUNCTION update_post_replies_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE forum_posts 
+        SET replies_count = replies_count + 1,
+            last_activity = NOW()
+        WHERE id = NEW.post_id;
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE forum_posts 
+        SET replies_count = replies_count - 1,
+            last_activity = NOW()
+        WHERE id = OLD.post_id;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_friends_updated_at BEFORE UPDATE ON friends 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- 帖子回复数量触发器
+DROP TRIGGER IF EXISTS trigger_update_post_replies_count ON forum_replies;
+CREATE TRIGGER trigger_update_post_replies_count
+    AFTER INSERT OR DELETE ON forum_replies
+    FOR EACH ROW
+    EXECUTE FUNCTION update_post_replies_count();
 
-CREATE TRIGGER update_messages_updated_at BEFORE UPDATE ON messages 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- 更新点赞数量的触发器函数
+CREATE OR REPLACE FUNCTION update_likes_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        IF TG_TABLE_NAME = 'forum_likes' THEN
+            UPDATE forum_posts 
+            SET likes_count = likes_count + 1 
+            WHERE id = NEW.post_id;
+        ELSIF TG_TABLE_NAME = 'forum_reply_likes' THEN
+            UPDATE forum_replies 
+            SET likes_count = likes_count + 1 
+            WHERE id = NEW.reply_id;
+        END IF;
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        IF TG_TABLE_NAME = 'forum_likes' THEN
+            UPDATE forum_posts 
+            SET likes_count = likes_count - 1 
+            WHERE id = OLD.post_id;
+        ELSIF TG_TABLE_NAME = 'forum_reply_likes' THEN
+            UPDATE forum_replies 
+            SET likes_count = likes_count - 1 
+            WHERE id = OLD.reply_id;
+        END IF;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_services_updated_at BEFORE UPDATE ON services 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- 帖子点赞触发器
+DROP TRIGGER IF EXISTS trigger_update_post_likes_count ON forum_likes;
+CREATE TRIGGER trigger_update_post_likes_count
+    AFTER INSERT OR DELETE ON forum_likes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_likes_count();
 
-CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- 回复点赞触发器
+DROP TRIGGER IF EXISTS trigger_update_reply_likes_count ON forum_reply_likes;
+CREATE TRIGGER trigger_update_reply_likes_count
+    AFTER INSERT OR DELETE ON forum_reply_likes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_likes_count();
 
--- 插入示例数据（开发环境）
--- INSERT INTO users (username, email, password_hash, role) VALUES
--- ('admin', 'admin@example.com', '$2b$12$example_hash', 'admin'),
--- ('navigator1', 'nav1@example.com', '$2b$12$example_hash', 'navigator'),
--- ('user1', 'user1@example.com', '$2b$12$example_hash', 'user'); 
+
+-- 创建视图以简化复杂查询
+-- 论坛帖子列表视图 (包含作者信息)
+CREATE OR REPLACE VIEW forum_posts_with_author AS
+SELECT 
+    fp.*,
+    u.username as author_username,
+    u.avatar_url as author_avatar,
+    u.role as author_role
+FROM forum_posts fp
+JOIN users u ON fp.author_id = u.id;
+
+-- 论坛回复列表视图 (包含作者信息)
+CREATE OR REPLACE VIEW forum_replies_with_author AS
+SELECT 
+    fr.*,
+    u.username as author_username,
+    u.avatar_url as author_avatar,
+    u.role as author_role
+FROM forum_replies fr
+JOIN users u ON fr.author_id = u.id;
+
+-- 消息对话视图 (用于获取对话列表)
+CREATE OR REPLACE VIEW message_conversations AS
+SELECT DISTINCT
+    CASE 
+        WHEN m.sender_id < m.recipient_id 
+        THEN CONCAT(m.sender_id, '_', m.recipient_id)
+        ELSE CONCAT(m.recipient_id, '_', m.sender_id)
+    END as conversation_key,
+    LEAST(m.sender_id, m.recipient_id) as user1_id,
+    GREATEST(m.sender_id, m.recipient_id) as user2_id,
+    MAX(m.created_at) as last_message_time
+FROM messages m
+GROUP BY conversation_key, user1_id, user2_id;
+
+
+-- 最终提醒信息
+DO $$
+BEGIN
+    RAISE NOTICE '数据库统一脚本执行完成！';
+    RAISE NOTICE '已创建的表: users, profiles, friends, services, orders, reviews, messages, forum_posts, forum_replies, forum_likes, forum_reply_likes, uploaded_files';
+    RAISE NOTICE '已创建的索引: 所有主要查询优化索引';
+    RAISE NOTICE '已创建的触发器: 自动更新统计数据和时间戳';
+    RAISE NOTICE '已创建的视图: forum_posts_with_author, forum_replies_with_author, message_conversations';
+    RAISE NOTICE '请使用此文件作为数据库结构的唯一真实来源。';
+END $$;
