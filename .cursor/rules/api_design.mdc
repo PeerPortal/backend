@@ -1,0 +1,72 @@
+---
+alwaysApply: true
+---
+
+## API 设计与命名规范
+
+为了保持 API 的一致性、可预测性和易用性，所有开发人员必须遵循以下设计和命名规范。
+
+### 1. API 端点设计
+
+-   **版本控制**: 所有新的 API 端点都必须包含在最新的版本号下，例如 `/api/v2/...`。
+-   **RESTful 原则**: 尽可能遵循 RESTful 设计原则，使用标准的 HTTP 方法 (GET, POST, PUT, DELETE) 来表示对资源的操作。
+-   **资源命名**: 使用复数形式的名词来命名资源集合，例如 `/api/v2/users`，`/api/v2/posts`。
+-   **安全性**: 默认情况下，所有需要访问用户数据的端点都必须是受保护的。使用 `Depends(get_current_user)` 依赖来确保用户已经过认证。对于需要特定权限的端点，使用角色检查依赖。对于公开但登录后体验更佳的端点，使用可选认证。
+
+    -   **强制认证**:
+        ```python
+        from app.api.deps import get_current_user
+        from app.schemas.user_schema import UserRead
+        
+        @router.get("/me", response_model=UserRead)
+        def read_current_user(current_user: UserRead = Depends(get_current_user)):
+            return current_user
+        ```
+    -   **可选认证**:
+        ```python
+        from app.api.deps import get_current_user_optional
+        from typing import Optional
+
+        @router.get("/posts/{post_id}")
+        def read_post(
+            post_id: int, 
+            current_user: Optional[UserRead] = Depends(get_current_user_optional)
+        ):
+            # 如果 current_user 不为 None，可以返回个性化数据
+            # ...
+            pass
+        ```
+    -   **基于角色的访问控制**:
+        ```python
+        from app.api.deps import require_admin_role
+        
+        @router.post("/admin/dashboard", dependencies=[Depends(require_admin_role)])
+        def get_admin_dashboard():
+            # 此端点只有管理员可以访问
+            return {"message": "Welcome, Admin!"}
+        ```
+
+### 2. API 文档
+
+-   **FastAPI 自动文档**: 充分利用 FastAPI 的自动交互式文档 (`/docs` 和 `/redoc`)。
+-   **`summary`**: 为每个端点提供一个简洁明了的 `summary`，清晰地概括其功能。
+-   **`description`**: 为复杂的端点提供详细的 `description`。可以使用 Markdown 来格式化列表、代码块等，以提高可读性。
+-   **`tags`**: 使用 `tags` 参数将相关的端点分组，以便在文档中进行分类。
+
+### 3. 命名约定
+
+-   **Python 文件**:
+    -   路由文件: `[feature]_router.py` (e.g., `user_router.py`)
+    -   CRUD 文件: `crud_[feature].py` (e.g., `crud_user.py`)
+    -   Schema 文件: `[feature]_schema.py` (e.g., `user_schema.py`)
+-   **Pydantic 模型**:
+    -   使用大驼峰命名法 (PascalCase)。
+    -   使用后缀 `Base`, `Create`, `Update`, `Read` 来明确其用途。
+    -   示例: `UserBase`, `UserCreate`, `UserUpdate`, `UserRead`。
+-   **API 路由函数**:
+    -   使用小写字母和下划线 (snake_case)。
+    -   名称应清晰地描述其操作和资源。
+    -   示例: `read_users`, `create_user_post`, `get_current_user_profile`。
+-   **变量**:
+    -   使用小写字母和下划线 (snake_case)。
+    -   示例: `db_session`, `current_user`, `new_post`。

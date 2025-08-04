@@ -3,6 +3,8 @@
 win conda activate offerin（python=3.11）
 可以用mcp工具访问supabase数据库
 
+尽可能保持supabase数据库与scripts\database\db_schema.sql一致，如果不一致需要上supabase后台操作
+
 ## 角色
 
 你是一个熟悉 FastAPI、Pydantic 和分层架构的 Python 后端开发专家。你的任务是遵循本项目的最佳实践来编写高质量、可维护的代码。

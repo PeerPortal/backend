@@ -1,0 +1,84 @@
+---
+alwaysApply: true
+---
+
+## 测试策略与最佳实践
+
+编写高质量的自动化测试是确保应用稳定性、可靠性和可维护性的关键。本项目使用 `pytest` 作为主要的测试框架。
+
+### 1. 测试框架与工具
+
+-   **核心框架**: `pytest`
+-   **异步支持**: `pytest-asyncio`，用于测试 `async def` 函数。
+-   **依赖管理**: `pytest-dependency`，用于管理测试用例之间的执行顺序。
+-   **HTTP 客户端**: `httpx.AsyncClient`，用于对 FastAPI 应用进行异步 HTTP 调用。
+
+### 2. 测试结构与位置
+
+-   **目录**: 所有 API 相关的集成测试都应放在 `test/api/` 目录下。
+-   **文件名**: 测试文件名必须以 `test_` 开头，例如 `test_user_api.py`。
+-   **函数名**: 测试函数名也必须以 `test_` 开头，例如 `test_create_user`。
+
+### 3. 核心测试实践
+
+-   **参考范例**: **`test/api/test_forum_api.py`** 是标准的测试范例。在编写新的测试时，务必参考此文件的结构和写法。
+-   **端到端流程 (CRUD)**: 测试应覆盖一个功能的完整生命周期（Create, Read, Update, Delete），以确保所有操作都能正常工作。
+-   **测试依赖**: 使用 `@pytest.mark.dependency()` 来明确定义测试用例的执行顺序。例如，`test_read_item` 应该依赖于 `test_create_item` 的成功执行。
+    ```python
+    import pytest
+    import httpx
+
+    # 用于在测试用例之间共享状态，如ID和token
+    shared_data = {}
+
+    @pytest.mark.dependency()
+    async def test_register_and_login(client: httpx.AsyncClient):
+        # 1. 注册新用户
+        # ...
+        # 2. 登录获取token
+        response = await client.post("/api/v1/auth/login", ...)
+        shared_data['token'] = response.json()["access_token"]
+        assert shared_data['token']
+
+    @pytest.mark.dependency(depends=["test_register_and_login"])
+    async def test_create_item(client: httpx.AsyncClient):
+        # ... 创建逻辑 ...
+        shared_data['item_id'] = ...
+
+    @pytest.mark.dependency(depends=["test_create_item"])
+    async def test_read_item(client: httpx.AsyncClient):
+        item_id = shared_data['item_id']
+        # ... 读取逻辑 ...
+    ```
+-   **状态共享**: 在依赖的测试用例之间，通过一个共享的字典（如上例中的 `shared_data`）来传递状态，例如新创建资源的 ID 或认证令牌。
+-   **认证测试**:
+    -   在一个独立的、高优先级的依赖测试中完成用户注册和登录，并将获取到的 `access_token` 存储在共享状态中。
+    -   创建一个辅助函数（例如 `get_auth_headers()`）来生成包含 `Bearer` 令牌的 `Authorization` 头。
+    -   在所有需要认证的测试用例中调用此辅助函数来获取请求头。
+    ```python
+    def get_auth_headers() -> dict:
+        """从共享状态读取token并生成认证头"""
+        token = shared_data.get("token")
+        if not token:
+            pytest.fail("Token not available. Auth test likely failed.")
+        return {"Authorization": f"Bearer {token}"}
+
+    @pytest.mark.dependency(depends=["test_register_and_login"])
+    async def test_protected_endpoint(client: httpx.AsyncClient):
+        response = await client.get(
+            "/api/v2/protected/route", 
+            headers=get_auth_headers()
+        )
+        assert response.status_code == 200
+    ```
+-   **清理**: 在测试模块的最后一个测试用例中，执行清理操作（例如删除测试中创建的用户或数据），以保持测试环境的整洁。该测试应依赖于所有创建了数据的测试。
+    ```python
+    @pytest.mark.dependency(depends=["test_create_item"])
+    async def test_cleanup_item(client: httpx.AsyncClient):
+        item_id = shared_data['item_id']
+        response = await client.delete(
+            f"/api/v2/items/{item_id}",
+            headers=get_auth_headers()
+        )
+        assert response.status_code == 200
+    ```
