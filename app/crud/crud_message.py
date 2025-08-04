@@ -14,20 +14,31 @@ class MessageCRUD:
     """消息CRUD操作类"""
 
     async def get_or_create_conversation(self, db_conn: Dict[str, Any], user1_id: int, user2_id: int) -> Optional[int]:
-        """获取或创建两人对话，返回对话ID"""
+        """获取或创建两人对话，返回对话ID (无RPC)"""
         client = db_conn["connection"]
         try:
-            res = await client.rpc('get_conversation_between_users', {'user1_id_in': user1_id, 'user2_id_in': user2_id}).execute()
-
-            if res.data:
-                return res.data[0]['id']
+            # 1. 获取 user1 的所有对话ID
+            user1_convs_res = client.table('conversation_participants').select('conversation_id').eq('user_id', user1_id).execute()
+            if user1_convs_res.data:
+                user1_conv_ids = [c['conversation_id'] for c in user1_convs_res.data]
                 
-            new_conv_res = await client.table('conversations').insert({}).execute()
+                # 2. 在 user1 的对话中查找也包含 user2 的对话
+                if user1_conv_ids:
+                    common_convs_res = client.table('conversation_participants').select('conversation_id').in_('conversation_id', user1_conv_ids).eq('user_id', user2_id).execute()
+                    
+                    if common_convs_res.data:
+                        # 假设第一个就是我们想要的1对1对话
+                        return common_convs_res.data[0]['conversation_id']
+
+            # 3. 如果没有找到共同对话，则创建新的
+            new_conv_res = client.table('conversations').insert({}).execute()
             if not new_conv_res.data:
                 return None
                 
             conv_id = new_conv_res.data[0]['id']
-            await client.table('conversation_participants').insert([
+            
+            # 4. 添加参与者
+            client.table('conversation_participants').insert([
                 {'conversation_id': conv_id, 'user_id': user1_id},
                 {'conversation_id': conv_id, 'user_id': user2_id}
             ]).execute()
@@ -61,11 +72,11 @@ class MessageCRUD:
                 "updated_at": now
             }
             
-            result = await client.table("messages").insert(insert_data).execute()
+            result = client.table("messages").insert(insert_data).execute()
             
             if result.data:
                 msg_data = result.data[0]
-                await client.table('conversations').update({
+                client.table('conversations').update({
                     'last_message_id': msg_data['id'],
                     'updated_at': now
                 }).eq('id', conversation_id).execute()
@@ -98,11 +109,11 @@ class MessageCRUD:
                 "updated_at": now
             }
             
-            result = await client.table("messages").insert(insert_data).execute()
+            result = client.table("messages").insert(insert_data).execute()
             
             if result.data:
                 msg_data = result.data[0]
-                await client.table('conversations').update({
+                client.table('conversations').update({
                     'last_message_id': msg_data['id'],
                     'updated_at': now
                 }).eq('id', conversation_id).execute()
@@ -130,7 +141,7 @@ class MessageCRUD:
                 results = await connection.fetch(query, user_id, limit, offset)
                 return [Message.model_validate(row) for row in results]
             else:
-                result = await connection.table("messages").select("*").or_(
+                result = connection.table("messages").select("*").or_(
                     f"sender_id.eq.{user_id},recipient_id.eq.{user_id}"
                 ).order("created_at", desc=True).range(offset, offset + limit - 1).execute()
                 
@@ -145,11 +156,11 @@ class MessageCRUD:
         """获取特定对话的消息列表"""
         client = db_conn["connection"]
         try:
-            part_res = await client.table('conversation_participants').select('user_id').eq('conversation_id', conversation_id).eq('user_id', user_id).execute()
+            part_res = client.table('conversation_participants').select('user_id').eq('conversation_id', conversation_id).eq('user_id', user_id).execute()
             if not part_res.data:
                 return []
 
-            result = await client.table("messages").select("*").eq(
+            result = client.table("messages").select("*").eq(
                 'conversation_id', conversation_id
             ).order("created_at", desc=True).range(offset, offset + limit - 1).execute()
 
@@ -160,61 +171,158 @@ class MessageCRUD:
         return []
 
     async def get_conversations(self, db_conn: Dict[str, Any], user_id: int, limit: int = 20, offset: int = 0) -> List[ConversationListItem]:
-        """获取用户的对话列表"""
+        """获取用户的对话列表 (无RPC)"""
         client = db_conn["connection"]
         try:
-            res = await client.rpc('get_user_conversations', {'p_user_id': user_id, 'p_limit': limit, 'p_offset': offset}).execute()
-            
-            if not res.data:
+            # 1. 获取用户参与的所有对话ID
+            user_conv_res = client.table('conversation_participants').select('conversation_id').eq('user_id', user_id).order('conversation_id', desc=True).range(offset, offset + limit - 1).execute()
+            if not user_conv_res.data:
                 return []
 
+            conv_ids = [c['conversation_id'] for c in user_conv_res.data]
+            
+            # 2. 获取这些对话的详细信息
+            conv_details_res = client.table('conversations').select('id, last_message_id').in_('id', conv_ids).execute()
+            if not conv_details_res.data:
+                return []
+            
+            conv_details_map = {c['id']: c for c in conv_details_res.data}
+            
+            # 3. 获取所有相关的参与者
+            participants_res = client.table('conversation_participants').select('conversation_id, user_id, profiles(id, username, avatar_url, role)').in_('conversation_id', conv_ids).execute()
+            if not participants_res.data:
+                return []
+
+            conv_participants_map = {}
+            for p in participants_res.data:
+                conv_id = p['conversation_id']
+                if conv_id not in conv_participants_map:
+                    conv_participants_map[conv_id] = []
+                conv_participants_map[conv_id].append(p)
+
+            # 4. 获取所有相关的最后一条消息
+            last_message_ids = [c['last_message_id'] for c in conv_details_res.data if c.get('last_message_id')]
+            last_messages_map = {}
+            if last_message_ids:
+                messages_res = client.table('messages').select('id, content, created_at').in_('id', last_message_ids).execute()
+                last_messages_map = {m['id']: m for m in messages_res.data}
+
+            # 5. 获取所有对话的未读消息数
+            unread_counts_map = {}
+            for conv_id in conv_ids:
+                 unread_res = client.table('messages').select('id', count='exact').eq('conversation_id', conv_id).eq('recipient_id', user_id).eq('is_read', False).execute()
+                 unread_counts_map[conv_id] = unread_res.count or 0
+
+            # 6. 组装最终结果
             conversations = []
-            for row in res.data:
-                other_user_data = row.get('other_user_details', {})
+            for conv_id in conv_ids:
+                participants = conv_participants_map.get(conv_id, [])
+                other_participant_data = next((p for p in participants if p['user_id'] != user_id), None)
+                
+                if not other_participant_data or not other_participant_data.get('profiles'):
+                    continue
+
+                other_user_profile = other_participant_data.get('profiles') or {}
+                # 确保核心字段存在，否则跳过
+                if not other_user_profile.get('id') or not other_user_profile.get('username'):
+                    continue
+                
                 other_user = ConversationParticipant(
-                    id=other_user_data.get('id'),
-                    username=other_user_data.get('username', '未知用户'),
-                    avatar_url=other_user_data.get('avatar_url'),
-                    role=other_user_data.get('role')
+                    id=other_user_profile['id'],
+                    username=other_user_profile['username'],
+                    avatar_url=other_user_profile.get('avatar_url'),
+                    role=other_user_profile.get('role', 'user') # 提供一个默认角色
                 )
+                
+                last_message_id = conv_details_map.get(conv_id, {}).get('last_message_id')
+                last_message_data = last_messages_map.get(last_message_id)
+                last_time = None
+                if last_message_data and last_message_data.get('created_at'):
+                    last_time = datetime.fromisoformat(last_message_data['created_at'])
+
                 conversations.append(ConversationListItem(
-                    id=row['conversation_id'],
+                    id=conv_id,
                     other_user=other_user,
-                    last_message=row.get('last_message_content'),
-                    last_message_time=datetime.fromisoformat(row['last_message_time']) if row.get('last_message_time') else None,
-                    unread_count=row.get('unread_count', 0)
+                    last_message=last_message_data.get('content') if last_message_data else None,
+                    last_message_time=last_time,
+                    unread_count=unread_counts_map.get(conv_id, 0)
                 ))
+            
             return conversations
         except Exception as e:
             print(f"获取对话列表失败: {e}")
             return []
     
-    async def mark_message_as_read(self, db_conn: Tuple[Any, str], message_id: int, user_id: int) -> bool:
+    async def mark_message_as_read(self, db_conn: Dict[str, Any], message_id: int, user_id: int) -> bool:
         """标记消息为已读"""
-        connection, db_type = db_conn
-        
+        client = db_conn["connection"]
         try:
-            if db_type == "postgres":
-                query = """
-                    UPDATE messages 
-                    SET is_read = true, read_at = $1, updated_at = $1
-                    WHERE id = $2 AND recipient_id = $3
-                """
-                now = datetime.now()
-                result = await connection.execute(query, now, message_id, user_id)
-                return result == "UPDATE 1"
-            else:
-                now = datetime.now().isoformat()
-                result = await connection.table("messages").update({
-                    "is_read": True,
-                    "read_at": now,
-                    "updated_at": now
-                }).eq("id", message_id).eq("recipient_id", user_id).execute()
-                
-                return len(result.data) > 0
-                
+            now = datetime.now().isoformat()
+            result = client.table("messages").update({
+                "is_read": True,
+                "read_at": now,
+                "updated_at": now
+            }).eq("id", message_id).eq("recipient_id", user_id).execute()
+            
+            return len(result.data) > 0
         except Exception as e:
             print(f"标记消息已读失败: {e}")
-        return False
+            return False
+
+    async def update_message(self, db_conn: Dict[str, Any], message_id: int, user_id: int, new_content: str) -> Optional[Message]:
+        """编辑消息"""
+        client = db_conn["connection"]
+        try:
+            # First, verify the user is the sender
+            message_res = client.table("messages").select("sender_id").eq("id", message_id).single().execute()
+            if not message_res.data or message_res.data['sender_id'] != user_id:
+                return None
+
+            now = datetime.now().isoformat()
+            update_data = {
+                "content": new_content,
+                "updated_at": now
+            }
+            
+            result = client.table("messages").update(update_data).eq("id", message_id).execute()
+            
+            if result.data:
+                return Message.model_validate(result.data[0])
+        except Exception as e:
+            print(f"编辑消息失败: {e}")
+        return None
+
+    async def delete_message(self, db_conn: Dict[str, Any], message_id: int, user_id: int) -> bool:
+        """删除消息（软删除）"""
+        client = db_conn["connection"]
+        try:
+            # Verify the user is the sender
+            message_res = client.table("messages").select("sender_id").eq("id", message_id).single().execute()
+            if not message_res.data or message_res.data['sender_id'] != user_id:
+                return False
+
+            now = datetime.now().isoformat()
+            update_data = {
+                "content": "此消息已删除",
+                "updated_at": now
+            }
+            
+            result = client.table("messages").update(update_data).eq("id", message_id).execute()
+            
+            return len(result.data) > 0
+        except Exception as e:
+            print(f"删除消息失败: {e}")
+            return False
+
+    async def get_unread_message_count(self, db_conn: Dict[str, Any], user_id: int) -> int:
+        """获取用户未读消息总数"""
+        client = db_conn["connection"]
+        try:
+            result = client.table("messages").select("id", count='exact').eq("recipient_id", user_id).eq("is_read", False).execute()
+            
+            return result.count if result.count is not None else 0
+        except Exception as e:
+            print(f"获取未读消息数失败: {e}")
+            return 0
 
 message_crud = MessageCRUD()

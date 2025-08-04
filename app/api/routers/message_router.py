@@ -3,7 +3,7 @@ from typing import List, Optional
 from app.api.deps import get_current_user, get_db_or_supabase
 from app.schemas.token_schema import AuthenticatedUser
 from app.schemas.message_schema import (
-    MessageCreate, Message, ConversationListItem, 
+    MessageCreate, Message, ConversationListItem, MessageUpdate, 
     MessageListResponse, ConversationListResponse, MultiModalMessageCreate
 )
 from app.crud.crud_message import message_crud
@@ -91,6 +91,50 @@ async def send_multi_modal_message(
         )
 
 @router.get(
+    "/unread-count",
+    response_model=dict,
+    summary="获取未读消息总数",
+    description="获取当前用户的未读消息总数"
+)
+async def get_unread_count(
+    db_conn=Depends(get_db_or_supabase),
+    current_user: AuthenticatedUser = Depends(get_current_user)
+):
+    """获取未读消息总数"""
+    try:
+        count = await message_crud.get_unread_message_count(db_conn, int(current_user.id))
+        return {"unread_count": count}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取未读消息数失败: {str(e)}"
+        )
+
+@router.get(
+    "/conversations",
+    response_model=List[ConversationListItem],
+    summary="获取对话列表",
+    description="获取用户的所有对话"
+)
+async def get_conversations(
+    limit: int = Query(20, ge=1, le=100, description="返回数量"),
+    offset: int = Query(0, ge=0, description="偏移量"),
+    db_conn=Depends(get_db_or_supabase),
+    current_user: AuthenticatedUser = Depends(get_current_user)
+):
+    """获取对话列表"""
+    try:
+        conversations = await message_crud.get_conversations(
+            db_conn, int(current_user.id), limit, offset
+        )
+        return [c.model_dump(mode='json') for c in conversations]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取对话列表失败: {str(e)}"
+        )
+        
+@router.get(
     "/{message_id}",
     response_model=dict,
     summary="获取消息详情",
@@ -111,6 +155,67 @@ async def get_message_detail(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取消息详情失败: {str(e)}"
         )
+
+@router.put(
+    "/{message_id}",
+    response_model=Message,
+    summary="编辑消息",
+    description="编辑已发送的消息"
+)
+async def update_message(
+    message_id: int,
+    message_update: MessageUpdate,
+    db_conn=Depends(get_db_or_supabase),
+    current_user: AuthenticatedUser = Depends(get_current_user)
+):
+    """编辑消息"""
+    try:
+        updated_message = await message_crud.update_message(
+            db_conn, message_id, int(current_user.id), message_update.content
+        )
+        if not updated_message:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="消息不存在或无权编辑"
+            )
+        return updated_message
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"编辑消息失败: {str(e)}"
+        )
+
+@router.delete(
+    "/{message_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="删除消息",
+    description="删除已发送的消息（软删除）"
+)
+async def delete_message(
+    message_id: int,
+    db_conn=Depends(get_db_or_supabase),
+    current_user: AuthenticatedUser = Depends(get_current_user)
+):
+    """删除消息"""
+    try:
+        success = await message_crud.delete_message(db_conn, message_id, int(current_user.id))
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="消息不存在或无权删除"
+            )
+        return
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"删除消息失败: {str(e)}"
+        )
+
+
 
 @router.put(
     "/{message_id}/read",
@@ -140,26 +245,46 @@ async def mark_message_as_read(
             detail=f"标记消息失败: {str(e)}"
         )
 
+from pydantic import ValidationError
+
+...
+
+# @router.get(
+#     "/conversations",
+#     response_model=List[ConversationListItem],
+#     summary="获取对话列表",
+#     description="获取用户的所有对话"
+# )
+# async def get_conversations(
+#     limit: int = Query(20, ge=1, le=100, description="返回数量"),
+#     offset: int = Query(0, ge=0, description="偏移量"),
+#     db_conn=Depends(get_db_or_supabase),
+#     current_user: AuthenticatedUser = Depends(get_current_user)
+# ):
+#     """获取对话列表"""
+#     try:
+#         conversations = await message_crud.get_conversations(
+#             db_conn, int(current_user.id), limit, offset
+#         )
+#         return [c.model_dump(mode='json') for c in conversations]
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=f"获取对话列表失败: {str(e)}"
+#         )
+
 @router.get(
-    "/conversations",
-    response_model=List[ConversationListItem],
-    summary="获取对话列表",
-    description="获取用户的所有对话"
+    "/conversations_debug",
+    summary="[DEBUG] 获取原始对话列表",
 )
-async def get_conversations(
-    limit: int = Query(20, ge=1, le=100, description="返回数量"),
+async def get_conversations_debug(
     db_conn=Depends(get_db_or_supabase),
     current_user: AuthenticatedUser = Depends(get_current_user)
 ):
-    """获取对话列表"""
-    try:
-        conversations = await message_crud.get_conversations(db_conn, int(current_user.id), limit)
-        return conversations
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取对话列表失败: {str(e)}"
-        )
+    conversations = await message_crud.get_conversations(db_conn, int(current_user.id))
+    return conversations
+
+
 
 @router.get(
     "/conversations/{conversation_id}",
@@ -184,4 +309,24 @@ async def get_conversation_messages(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取对话消息失败: {str(e)}"
+        )
+
+@router.get(
+    "/unread-count",
+    response_model=dict,
+    summary="获取未读消息总数",
+    description="获取当前用户的未读消息总数"
+)
+async def get_unread_count(
+    db_conn=Depends(get_db_or_supabase),
+    current_user: AuthenticatedUser = Depends(get_current_user)
+):
+    """获取未读消息总数"""
+    try:
+        count = await message_crud.get_unread_message_count(db_conn, int(current_user.id))
+        return {"unread_count": count}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取未读消息数失败: {str(e)}"
         )

@@ -26,6 +26,7 @@ class MessageStatus(str, Enum):
     sent = "sent"
     delivered = "delivered"
     read = "read"
+    deleted = "deleted"
 
 class MessageCreate(BaseModel):
     """创建消息"""

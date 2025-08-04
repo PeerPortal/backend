@@ -207,3 +207,78 @@ async def test_send_reply_message(client: AsyncClient):
     assert convos_a[0]["unread_count"] >= 1
     
     print("回复消息成功，对话列表已更新")
+
+@pytest.mark.asyncio
+@pytest.mark.dependency(depends=["test_send_first_message"])
+async def test_update_message(client: AsyncClient):
+    """测试：编辑已发送的消息"""
+    sender_auth = shared_data["user_a"]["auth"]
+    message_id = shared_data["last_message_id"]
+    
+    # 1. 发送者编辑消息
+    update_payload = {"content": "你好，导师！这是我修改后的第一条消息。"}
+    res = await client.put(f"/api/v1/messages/{message_id}", json=update_payload, headers=sender_auth["headers"])
+    
+    assert res.status_code == 200, f"编辑消息失败: {res.text}"
+    updated_message = res.json()
+    assert updated_message["content"] == "你好，导师！这是我修改后的第一条消息。"
+    assert updated_message["id"] == message_id
+    
+    print("发送者成功编辑消息")
+
+    # 2. 接收者尝试编辑消息 (应该失败)
+    recipient_auth = shared_data["user_b"]["auth"]
+    res_fail = await client.put(f"/api/v1/messages/{message_id}", json=update_payload, headers=recipient_auth["headers"])
+    
+    assert res_fail.status_code == 404, "非发送者不应能编辑消息"
+    print("接收者编辑消息失败，符合预期")
+
+@pytest.mark.asyncio
+@pytest.mark.dependency(depends=["test_update_message"])
+async def test_delete_message(client: AsyncClient):
+    """测试：删除已发送的消息"""
+    sender_auth = shared_data["user_a"]["auth"]
+    recipient_auth = shared_data["user_b"]["auth"]
+    message_id = shared_data["last_message_id"]
+
+    # 1. 接收者尝试删除 (应该失败)
+    res_fail = await client.delete(f"/api/v1/messages/{message_id}", headers=recipient_auth["headers"])
+    assert res_fail.status_code == 404, "非发送者不应能删除消息"
+    print("接收者删除消息失败，符合预期")
+
+    # 2. 发送者删除消息
+    res = await client.delete(f"/api/v1/messages/{message_id}", headers=sender_auth["headers"])
+    assert res.status_code == 204, f"删除消息失败: {res.text}"
+    print("发送者成功删除消息")
+
+    # 3. 验证消息内容已更新
+    await asyncio.sleep(0.5)
+    conversation_id = shared_data["conversation_id"]
+    res_get = await client.get(f"/api/v1/messages/conversations/{conversation_id}", headers=sender_auth["headers"])
+    
+    messages = res_get.json()
+    deleted_message_found = False
+    for msg in messages:
+        if msg["id"] == message_id:
+            assert msg["content"] == "此消息已删除"
+            deleted_message_found = True
+            break
+    
+    assert deleted_message_found, "未在对话中找到已删除的消息"
+    print("验证消息已被软删除成功")
+
+@pytest.mark.asyncio
+@pytest.mark.dependency(depends=["test_send_reply_message"])
+async def test_get_unread_count(client: AsyncClient):
+    """测试：获取未读消息总数"""
+    user_a_headers = shared_data["user_a"]["auth"]["headers"]
+    
+    # 在 test_send_reply_message 之后，用户A应该有未读消息
+    res = await client.get("/api/v1/messages/unread-count", headers=user_a_headers)
+    
+    assert res.status_code == 200, f"获取未读数失败: {res.text}"
+    data = res.json()
+    assert "unread_count" in data
+    assert data["unread_count"] >= 1
+    
+    print(f"获取到用户A的未读消息数为: {data['unread_count']}，测试成功")

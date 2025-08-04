@@ -89,3 +89,7 @@ win conda activate offerin（python=3.11）
     - **重要**: 如果需要修改数据库表结构，必须**直接在 Supabase 管理后台**进行操作。
     - `scripts/database/db_schema.sql` 文件是数据库结构的唯一真实来源。**所有代码实现（如CRUD操作、RPC调用）必须与此文件中的表和函数定义严格保持一致。**
     - `scripts/database/db_schema.sql` 文件可作为参考，但不保证与线上数据库完全同步。**线上 Supabase 数据库的结构是唯一可信的来源**。
+
+## to do
+
+开发并测试论坛、私信、支付等模块的api。
