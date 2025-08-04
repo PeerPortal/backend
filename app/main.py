@@ -100,7 +100,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # 注册所有路由模块
 from app.api.routers import (
-    auth_router, user_router, matching_router, session_router, review_router, message_router, messages
+    auth_router, user_router, matching_router, session_router, review_router, message_router
 )
 # 使用修复后的路由
 from app.api.routers.mentor_router_fixed import router as mentor_router_fixed
@@ -133,7 +133,7 @@ app.include_router(session_router.router, prefix="/api/v1/sessions", tags=["指�
 app.include_router(review_router.router, prefix="/api/v1/reviews", tags=["评价反馈"])
 
 # 消息系统 (私信)
-app.include_router(messages.router, prefix="/api/messages", tags=["私信"])
+app.include_router(message_router.router, prefix="/api/v1/messages", tags=["消息系统"])
 
 # 论坛系统
 app.include_router(forum_router, prefix="/api/v1/forum", tags=["论坛系统"])

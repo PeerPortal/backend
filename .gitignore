@@ -16,10 +16,13 @@ Thumbs.db
 *.swp
 *.swo
 *~
-.cursorrules
 
 # 临时文件
 tmp/
 temp/
 cache/
 .pytest_cache/
+
+# 目录
+
+*.log

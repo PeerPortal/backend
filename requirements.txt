@@ -1,5 +1,5 @@
 # PeerPortal 留学平台 - 后端依赖包
-# 更新日期: 2024-07-26
+# 更新日期: 2024-07-27
 # Python 版本要求: >=3.8
 
 # 核心Web框架
@@ -16,6 +16,7 @@ asyncpg==0.30.0
 psycopg2-binary==2.9.10
 sqlalchemy[asyncio]>=2.0.0,<2.0.36
 supabase==2.17.0
+
 
 # 认证与安全
 python-jose[cryptography]==3.5.0
@@ -44,7 +45,6 @@ duckduckgo-search>=6.3.7,<7.0.0
 
 # 知识库与向量存储
 chromadb==0.5.15
-# unstructured[docx,pdf]==0.11.8  # 暂时注释掉，有依赖冲突
 pypdf==5.2.0
 
 # Web界面

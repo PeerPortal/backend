@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import ValidationError
 from typing import Optional, Union
-from supabase import create_client
+from supabase import create_client, Client
 
 from app.core.config import settings
 from app.core.db import get_db_connection
@@ -20,8 +20,8 @@ oauth2_scheme = OAuth2PasswordBearer(
     description="使用用户名和密码获取访问令牌"
 )
 
-# 创建 Supabase 客户端作为备用
-supabase_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+# 创建异步 Supabase 客户端
+supabase_client: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
 # 数据库连接依赖（支持降级模式）
 async def get_db_or_supabase():
@@ -57,7 +57,7 @@ async def get_user_by_username(
             # 使用连接池
             conn = db_conn["connection"]
             result = await conn.fetchrow(
-                "SELECT id, username, email, password_hash, role, is_active FROM users WHERE username = $1",
+                "SELECT id, username, email, password_hash, role, is_active, avatar_url FROM users WHERE username = $1",
                 username
             )
             return dict(result) if result else None
@@ -65,7 +65,7 @@ async def get_user_by_username(
             # 使用Supabase客户端
             client = db_conn["connection"]
             result = client.table('users').select(
-                'id, username, email, password_hash, role, is_active'
+                'id, username, email, password_hash, role, is_active, avatar_url'
             ).eq('username', username).execute()
             
             return result.data[0] if result.data else None
@@ -116,9 +116,10 @@ async def get_current_user(
     
     return AuthenticatedUser(
         id=str(user['id']),
-        username=user['username'],  # 确保设置username字段
+        username=user['username'],
         email=user.get('email'),
-        role=user.get('role', 'user')
+        role=user.get('role', 'user'),
+        avatar_url=user.get('avatar_url')
     )
 
 def require_role(required_role: str):

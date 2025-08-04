@@ -1,7 +1,7 @@
 -- 启航引路人项目数据库架构
--- 版本: 2.1
--- 更新时间: 2024-07-26
--- 描述: 合并了所有表结构到一个文件，保证创建顺序正确。
+-- 版本: 2.2
+-- 更新时间: 2024-07-27
+-- 描述: 合并了所有表结构到一个文件，并为消息系统增加了 'conversations' 和 'conversation_participants' 表。
 
 -- 用户表（核心用户账户信息）
 CREATE TABLE IF NOT EXISTS users (
@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(20) DEFAULT 'user',  -- user, navigator, admin
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    avatar_url TEXT -- 补充在 user_schema 中使用的字段
 );
 
 -- 用户资料表（扩展用户信息）
@@ -20,7 +21,6 @@ CREATE TABLE IF NOT EXISTS profiles (
     id SERIAL PRIMARY KEY,
     user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     full_name VARCHAR(100),
-    avatar_url TEXT,
     bio TEXT,
     phone VARCHAR(20),
     location VARCHAR(100),
@@ -149,17 +149,34 @@ CREATE TABLE IF NOT EXISTS uploaded_files (
 -- 消息表
 CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY,
-    conversation_id INTEGER, -- 可选，用于分组对话
+    conversation_id INTEGER, -- 外键后添加，避免循环依赖
     sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
-    message_type VARCHAR(20) DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'file', 'system')),
+    message_type VARCHAR(20) DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'file', 'system', 'multi_modal')),
     status VARCHAR(20) DEFAULT 'sent' CHECK (status IN ('sent', 'delivered', 'read')),
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     read_at TIMESTAMP WITH TIME ZONE NULL,
     CONSTRAINT messages_sender_recipient_check CHECK (sender_id != recipient_id)
+);
+
+-- 对话表
+CREATE TABLE IF NOT EXISTS conversations (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    last_message_id INT -- 外键后添加，避免循环依赖
+);
+
+-- 对话参与者表
+CREATE TABLE IF NOT EXISTS conversation_participants (
+    id SERIAL PRIMARY KEY,
+    conversation_id INT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (conversation_id, user_id)
 );
 
 
@@ -207,13 +224,31 @@ CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_id ON uploaded_files(user_id)
 CREATE INDEX IF NOT EXISTS idx_uploaded_files_file_type ON uploaded_files(file_type);
 CREATE INDEX IF NOT EXISTS idx_uploaded_files_created_at ON uploaded_files(created_at DESC);
 
+-- 对话参与者表索引
+CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversation_id ON conversation_participants(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id ON conversation_participants(user_id);
+
+
+-- 消息系统外键约束 (为解决循环依赖后添加)
+ALTER TABLE messages
+    ADD CONSTRAINT fk_messages_conversation
+    FOREIGN KEY (conversation_id)
+    REFERENCES conversations(id)
+    ON DELETE CASCADE;
+
+ALTER TABLE conversations
+    ADD CONSTRAINT fk_conversations_last_message
+    FOREIGN KEY (last_message_id)
+    REFERENCES messages(id)
+    ON DELETE SET NULL;
+
 
 -- 创建触发器函数和触发器
 -- 创建更新时间戳的触发器函数
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_at = NOW();
     RETURN NEW;
 END;
 $$ language 'plpgsql';
@@ -224,6 +259,8 @@ CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles FOR EACH ROW
 CREATE TRIGGER update_friends_updated_at BEFORE UPDATE ON friends FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_services_updated_at BEFORE UPDATE ON services FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 
 -- 更新帖子回复数量的触发器函数
 CREATE OR REPLACE FUNCTION update_post_replies_count()
@@ -305,38 +342,26 @@ CREATE OR REPLACE VIEW forum_posts_with_author AS
 SELECT 
     fp.*,
     u.username as author_username,
-    u.avatar_url as author_avatar,
+    p.avatar_url as author_avatar,
     u.role as author_role
 FROM forum_posts fp
-JOIN users u ON fp.author_id = u.id;
+JOIN users u ON fp.author_id = u.id
+LEFT JOIN profiles p ON u.id = p.user_id;
 
 -- 论坛回复列表视图 (包含作者信息)
 CREATE OR REPLACE VIEW forum_replies_with_author AS
 SELECT 
     fr.*,
     u.username as author_username,
-    u.avatar_url as author_avatar,
+    p.avatar_url as author_avatar,
     u.role as author_role
 FROM forum_replies fr
-JOIN users u ON fr.author_id = u.id;
-
--- 消息对话视图 (用于获取对话列表)
-CREATE OR REPLACE VIEW message_conversations AS
-SELECT DISTINCT
-    CASE 
-        WHEN m.sender_id < m.recipient_id 
-        THEN CONCAT(m.sender_id, '_', m.recipient_id)
-        ELSE CONCAT(m.recipient_id, '_', m.sender_id)
-    END as conversation_key,
-    LEAST(m.sender_id, m.recipient_id) as user1_id,
-    GREATEST(m.sender_id, m.recipient_id) as user2_id,
-    MAX(m.created_at) as last_message_time
-FROM messages m
-GROUP BY conversation_key, user1_id, user2_id;
+JOIN users u ON fr.author_id = u.id
+LEFT JOIN profiles p ON u.id = p.user_id;
 
 
 -- 私信功能的函数
-CREATE OR REPLACE FUNCTION get_conversation_between_users(user1_id INT, user2_id INT)
+CREATE OR REPLACE FUNCTION get_conversation_between_users(user1_id_in INT, user2_id_in INT)
 RETURNS TABLE(id INT)
 LANGUAGE plpgsql
 AS $$
@@ -345,7 +370,7 @@ BEGIN
     SELECT cp1.conversation_id
     FROM conversation_participants AS cp1
     JOIN conversation_participants AS cp2 ON cp1.conversation_id = cp2.conversation_id
-    WHERE cp1.user_id = user1_id AND cp2.user_id = user2_id
+    WHERE cp1.user_id = user1_id_in AND cp2.user_id = user2_id_in
     LIMIT 1;
 END;
 $$;
@@ -415,9 +440,9 @@ $$;
 DO $$
 BEGIN
     RAISE NOTICE '数据库统一脚本执行完成！';
-    RAISE NOTICE '已创建的表: users, profiles, friends, services, orders, reviews, messages, forum_posts, forum_replies, forum_likes, forum_reply_likes, uploaded_files';
+    RAISE NOTICE '已创建的表: users, profiles, friends, services, orders, reviews, messages, conversations, conversation_participants, forum_posts, forum_replies, forum_likes, forum_reply_likes, uploaded_files';
     RAISE NOTICE '已创建的索引: 所有主要查询优化索引';
     RAISE NOTICE '已创建的触发器: 自动更新统计数据和时间戳';
-    RAISE NOTICE '已创建的视图: forum_posts_with_author, forum_replies_with_author, message_conversations';
+    RAISE NOTICE '已创建的视图: forum_posts_with_author, forum_replies_with_author';
     RAISE NOTICE '请使用此文件作为数据库结构的唯一真实来源。';
 END $$;
