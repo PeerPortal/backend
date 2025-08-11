@@ -1,0 +1,91 @@
+# 支付系统配置示例
+# 请复制此文件到 .env 并填入真实的配置值
+
+# ================== 支付宝配置 ==================
+# 支付宝开放平台应用ID
+ALIPAY_APP_ID=your_alipay_app_id
+
+# 支付宝应用私钥（RSA2格式，去除头尾和换行符）
+ALIPAY_PRIVATE_KEY=your_alipay_private_key
+
+# 支付宝公钥（RSA2格式，去除头尾和换行符）
+ALIPAY_PUBLIC_KEY=your_alipay_public_key
+
+# 支付宝网关地址（沙箱环境）
+ALIPAY_GATEWAY=https://openapi.alipaydev.com/gateway.do
+
+# 支付宝签名类型
+ALIPAY_SIGN_TYPE=RSA2
+
+# 支付宝调试模式（开发环境设为true，生产环境设为false）
+ALIPAY_DEBUG=true
+
+# ================== 微信支付配置 ==================
+# 微信支付商户号
+WECHAT_MCHID=your_wechat_mchid
+
+# 微信小程序/公众号AppID
+WECHAT_APPID=your_wechat_appid
+
+# 微信支付API私钥（去除头尾和换行符）
+WECHAT_PRIVATE_KEY=your_wechat_private_key
+
+# 微信支付证书序列号
+WECHAT_CERT_SERIAL_NO=your_cert_serial_no
+
+# 微信支付API v3密钥
+WECHAT_API_V3_KEY=your_api_v3_key
+
+# 微信支付调试模式
+WECHAT_DEBUG=true
+
+# ================== 支付安全配置 ==================
+# 支付回调IP白名单（JSON格式）
+# 支付宝IP: ["203.209.230.0/24", "203.209.231.0/24"]
+# 微信支付IP: ["101.226.103.0/24", "101.226.62.0/24"]
+PAYMENT_CALLBACK_IPS=["127.0.0.1", "::1"]
+
+# 单笔支付最大金额（元）
+PAYMENT_MAX_AMOUNT=10000.0
+
+# 单笔支付最小金额（元）
+PAYMENT_MIN_AMOUNT=0.01
+
+# 支付过期时间（分钟）
+PAYMENT_EXPIRE_MINUTES=30
+
+# ================== 如何获取支付配置 ==================
+
+# 支付宝配置获取步骤：
+# 1. 访问支付宝开放平台: https://open.alipay.com/
+# 2. 登录并创建应用
+# 3. 在应用详情中获取 APPID
+# 4. 生成RSA2密钥对，上传公钥到支付宝平台
+# 5. 获取支付宝公钥
+# 6. 沙箱环境地址: https://openapi.alipaydev.com/gateway.do
+# 7. 生产环境地址: https://openapi.alipay.com/gateway.do
+
+# 微信支付配置获取步骤：
+# 1. 访问微信支付商户平台: https://pay.weixin.qq.com/
+# 2. 登录并获取商户号(MCHID)
+# 3. 在API安全中下载证书并获取序列号
+# 4. 设置API v3密钥
+# 5. 关联小程序/公众号获取APPID
+
+# ================== 开发环境快速配置 ==================
+# 如果只是开发测试，可以使用以下配置（不会实际支付）：
+
+# 支付宝沙箱配置示例：
+# ALIPAY_APP_ID=9021000122671080
+# ALIPAY_GATEWAY=https://openapi.alipaydev.com/gateway.do
+# ALIPAY_DEBUG=true
+
+# 注意：生产环境必须使用真实的配置，并且设置 DEBUG=false
+
+# ================== 安全提醒 ==================
+# 1. 私钥信息绝对不能泄露，不要提交到代码仓库
+# 2. 生产环境必须启用HTTPS
+# 3. 定期更换API密钥
+# 4. 监控异常的支付请求
+# 5. 设置合理的支付金额限制
+# 6. 启用支付回调IP白名单验证

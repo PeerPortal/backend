@@ -71,6 +71,29 @@ class Settings(BaseSettings):
     RAG_CHUNK_OVERLAP: int = Field(default=200)
     RAG_TOP_K: int = Field(default=5)
     
+    # 支付系统配置
+    # 支付宝配置
+    ALIPAY_APP_ID: Optional[str] = Field(default=None)
+    ALIPAY_PRIVATE_KEY: Optional[str] = Field(default=None)
+    ALIPAY_PUBLIC_KEY: Optional[str] = Field(default=None)
+    ALIPAY_GATEWAY: str = Field(default="https://openapi.alipay.com/gateway.do")
+    ALIPAY_SIGN_TYPE: str = Field(default="RSA2")
+    ALIPAY_DEBUG: bool = Field(default=False)
+    
+    # 微信支付配置
+    WECHAT_MCHID: Optional[str] = Field(default=None)
+    WECHAT_APPID: Optional[str] = Field(default=None)
+    WECHAT_PRIVATE_KEY: Optional[str] = Field(default=None)
+    WECHAT_CERT_SERIAL_NO: Optional[str] = Field(default=None)
+    WECHAT_API_V3_KEY: Optional[str] = Field(default=None)
+    WECHAT_DEBUG: bool = Field(default=False)
+    
+    # 支付安全配置
+    PAYMENT_CALLBACK_IPS: str = Field(default="[]")  # JSON格式的IP白名单
+    PAYMENT_MAX_AMOUNT: float = Field(default=10000.0)  # 单笔支付最大金额
+    PAYMENT_MIN_AMOUNT: float = Field(default=0.01)     # 单笔支付最小金额
+    PAYMENT_EXPIRE_MINUTES: int = Field(default=30)     # 支付过期时间（分钟）
+    
     # CORS 配置
     ALLOWED_ORIGINS: str = Field(
         default='["http://localhost:3000", "http://localhost:8080"]'

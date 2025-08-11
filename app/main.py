@@ -138,6 +138,10 @@ app.include_router(message_router.router, prefix="/api/v1/messages", tags=["消�
 # 论坛系统
 app.include_router(forum_router, prefix="/api/v1/forum", tags=["论坛系统"])
 
+# 支付系统
+from app.api.routers.payment_router import router as payment_router
+app.include_router(payment_router, prefix="/api/v2/payments", tags=["支付系统"])
+
 # 文件上传系统
 app.include_router(file_router, prefix="/api/v1/files", tags=["文件上传"])
 
